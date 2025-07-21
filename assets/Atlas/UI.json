@@ -1,0 +1,59 @@
+{
+  "com.badlogic.gdx.graphics.Color": {
+
+  "gray": [0.66, 0.66, 0.66, 1.0],
+  "white": [1.0, 1.0, 1.0, 1.0]
+  },
+  "com.badlogic.gdx.graphics.g2d.BitmapFont": {
+    "main-font": {
+      "file": "mainfont.fnt"
+    }
+  },
+  "com.badlogic.gdx.scenes.scene2d.ui.Label$LabelStyle": {
+    "default": {
+      "font": "main-font",
+      "fontColor": "white"
+    }
+  },
+  "com.badlogic.gdx.scenes.scene2d.ui.TextButton$TextButtonStyle": {
+    "default": {
+      "up": "ButtonUp",
+      "over": "ButtonHover",
+      "down": "ButtonPressed",
+      "checked": "ButtonPressed",
+      "font": "main-font",
+      "fontColor": "white",
+      "overFontColor": "white",
+      "downFontColor": "white",
+      "checkedFontColor": "white",
+      "disabledFontColor": "white"
+    }
+  },
+  "com.badlogic.gdx.scenes.scene2d.ui.TextField$TextFieldStyle": {
+    "default": {
+      "font": "main-font",
+      "fontColor": "white",
+      "background": "Container",
+      "cursor": "Cursor",
+      "selection": "Container"
+    }
+  },
+  "com.badlogic.gdx.scenes.scene2d.ui.SelectBox$SelectBoxStyle": {
+    "default": {
+      "font": "main-font",
+      "fontColor": "white",
+      "background": "Container",
+      "backgroundOpen": "Container",
+      "scrollStyle": {
+        "background": "Container"
+      },
+      "listStyle": {
+        "font": "main-font",
+        "fontColorUnselected": "white",
+        "fontColorSelected": "white",
+        "selection": "Container",
+        "background": "Container"
+      }
+    }
+  }
+}
