@@ -21,6 +21,7 @@ import com.badlogic.gdx.utils.viewport.ScreenViewport;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.stream.Collectors;
 
 public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
 
@@ -42,6 +43,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
     private Integer firstSelectedIndex = null;
     private final TextButton[] swapButtons = new TextButton[7];
     private boolean statsrolled = false;
+    private Label selectedTraitsLabel;
     private ArrayList<Class<? extends RaceTrait>> selectedTraits = new ArrayList<>();
     private final int MAX_TRAITS = 3;
 
@@ -90,6 +92,18 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         portraits = new Texture[files.length];
         for (int i = 0; i < files.length; i++) {
             portraits[i] = new Texture(files[i]);
+        }
+    }
+
+    private void updateSelectedTraitsLabel() {
+        if (selectedTraits.isEmpty()) {
+            selectedTraitsLabel.setText("Selected Traits: (none yet)");
+        } else {
+            String traitsText = selectedTraits.stream()
+                    .map(Class::getSimpleName)
+                    .collect(Collectors.joining("\n")); // line break between traits
+            selectedTraitsLabel.setText("Selected Traits:\n" + traitsText);
+            System.out.println("Selected Traits:\n" + traitsText);
         }
     }
 
@@ -154,8 +168,10 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         style.font = new BitmapFont();
 
 // Trait selection label
-        Label traitsLabel = new Label("Select Race Traits (max " + MAX_TRAITS + "):", whiteLabelStyle);
+
+        Label traitsLabel = new Label("Select Race Traits (max before penalties " + MAX_TRAITS + "):", whiteLabelStyle);
         table.add(traitsLabel).right().padTop(20).row();
+
 
         Table traitTable = new Table();
         ScrollPane.ScrollPaneStyle scrollStyle = new ScrollPane.ScrollPaneStyle();
@@ -172,6 +188,8 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         scrollPane.setSmoothScrolling(true);
 
 // Add checkboxes for each trait
+
+
         for (Class<? extends RaceTrait> traitClass : ALL_TRAITS) {
             String traitName = traitClass.getSimpleName();
             CheckBox checkBox = new CheckBox(traitName, style);
@@ -189,6 +207,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                     } else {
                         selectedTraits.remove(traitClass);
                     }
+                    updateSelectedTraitsLabel();
                 }
             });
 
@@ -283,6 +302,18 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         table.add(speciesTable).expandX().fillX().right().padBottom(20);
         table.row();
 
+        //Race trait label
+
+
+        Label.LabelStyle labelStyle = new Label.LabelStyle();
+        labelStyle.font = skin.getFont("main-font"); // use the font you know works
+        labelStyle.fontColor = Color.WHITE;
+
+        selectedTraitsLabel = new Label("Selected Traits: None", labelStyle);
+        table.row();
+        table.add(selectedTraitsLabel).expandX().left().pad(10);
+
+        updateSelectedTraitsLabel();
 
 // Ability Fields Table
         Table abilitiesTable = new Table();
@@ -398,7 +429,10 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         table.row();
 
 
+
+
 // Add the fully constructed table to the stage
+        table.setFillParent(true);
         stage.addActor(table);
 
 
