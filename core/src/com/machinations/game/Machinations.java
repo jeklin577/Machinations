@@ -10,6 +10,32 @@ public class Machinations extends Game {
 
 	private GameScreen gameScreen;
 	private Skin skin;
+	private PlayerCharacter playerCharacter; // <-- add this
+
+	public void startGame() {
+		if (playerCharacter == null) {
+			System.out.println("Cannot start game: no player character set.");
+			return;
+		}
+
+		// Create GameScreen
+		gameScreen = new GameScreen();
+
+		// If your GameScreen needs to know about the PlayerCharacter, you can
+		// pass it via a setter or constructor
+		gameScreen.setPlayerCharacter(playerCharacter);
+
+		// Set the screen to the game
+		setScreen(gameScreen);
+	}
+
+	public void setPlayerCharacter(PlayerCharacter pc) {
+		this.playerCharacter = pc;
+	}
+
+	public PlayerCharacter getPlayerCharacter() {
+		return playerCharacter;
+	}
 
 	@Override
 	public void create() {
@@ -19,8 +45,10 @@ public class Machinations extends Game {
 
 		gameScreen = new GameScreen();
 
+
+
 		// Pass the skin to your CharacterCreationScreen constructor
-		setScreen((Screen) new CharacterCreationScreen(skin));
+		setScreen((Screen) new CharacterCreationScreen(this,skin));
 		// setScreen(gameScreen);
 	}
 

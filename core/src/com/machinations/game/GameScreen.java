@@ -22,6 +22,7 @@ public class GameScreen implements Screen {
     private PartyUI partyUI;
     private DialogueSystem dialogueSystem;
     private static Log log;
+    private PlayerCharacter playerCharacter; // store it here
 
     private Texture[] playerTextures;
 
@@ -33,8 +34,8 @@ public class GameScreen implements Screen {
         font = new BitmapFont(Gdx.files.internal("mainfont.fnt"));
         log = new Log(font, batch, 10, 10, 700, 400, 5000);
         log.addEntry("Game started");
-        log.addEntry("Testicles");
-        log.addEntry("Is cool");
+        // log.addEntry("Testicles"); // <-- commented out
+        // log.addEntry("Is cool");   // <-- commented out
 
         // Load player textures
         playerTextures = new Texture[4];
@@ -72,81 +73,58 @@ public class GameScreen implements Screen {
                 log
         );
 
-        // Initialize party and UI (add your party setup here)
-
         // Initialize class level progression
         ClassLevelProgression party1Prog = new ClassLevelProgression();
         party1Prog.initializeClassProgressions();
 
-        // Initialize testDummy with example stats
-        PlayerCharacter testDummy = new PlayerCharacter(
-                "Dummy the expert",     // Name
-                "Human",          // Species
-                "Expert",         // Class type
-                party1Prog,       // ClassLevelProgression
-                10,               // Charisma score
-                12,               // Comeliness score
-                14,               // Constitution score
-                16,               // Dexterity score
-                18,               // Strength score
-                20,               // Intelligence score
-                22                // Wisdom score
-        );
+        // Commented out placeholder characters
+    /*
+    PlayerCharacter testDummy = new PlayerCharacter(
+            "Dummy the expert",
+            "Human",
+            "Expert",
+            party1Prog,
+            10, 12, 14, 16, 18, 20, 22
+    );
 
-        PlayerCharacter Testicles = new PlayerCharacter(
-                "Testicles the Psion",     // Name
-                "Roman",          // Species
-                "Psion",         // Class type
-                party1Prog,       // ClassLevelProgression
-                10,               // Charisma score
-                12,               // Comeliness score
-                14,               // Constitution score
-                16,               // Dexterity score
-                18,               // Strength score
-                20,               // Intelligence score
-                22                // Wisdom score
-        );
+    PlayerCharacter Testicles = new PlayerCharacter(
+            "Testicles the Psion",
+            "Roman",
+            "Psion",
+            party1Prog,
+            10, 12, 14, 16, 18, 20, 22
+    );
 
-        PlayerCharacter secondDummy = new PlayerCharacter(
-                "Second Dummy the killer",      // Name
-                "Scholar",           // Species
-                "Killer",             // Class type
-                party1Prog,          // Class progression
-                14,                  // Charisma
-                15,                  // Comeliness
-                12,                  // Constitution
-                18,                  // Dexterity
-                16,                  // Strength
-                19,                  // Intelligence
-                21                   // Wisdom
-        );
+    PlayerCharacter secondDummy = new PlayerCharacter(
+            "Second Dummy the killer",
+            "Scholar",
+            "Killer",
+            party1Prog,
+            14, 15, 12, 18, 16, 19, 21
+    );
 
-        PlayerCharacter AverageDummy = new PlayerCharacter(
-                "Average the Scholar",      // Name
-                "Scholar",           // Species
-                "Scholar",             // Class type
-                party1Prog,          // Class progression
-                10,                  // Charisma
-                10,                  // Comeliness
-                10,                  // Constitution
-                10,                  // Dexterity
-                10,                  // Strength
-                10,                  // Intelligence
-                10                   // Wisdom
-        );
+    PlayerCharacter AverageDummy = new PlayerCharacter(
+            "Average the Scholar",
+            "Scholar",
+            "Scholar",
+            party1Prog,
+            10, 10, 10, 10, 10, 10, 10
+    );
 
+    Party party = new Party();
+    party.addMember(testDummy);
+    party.addMember(AverageDummy);
+    AverageDummy.setPortrait(new Texture(Gdx.files.internal("Portraits/FlyPortrait.png")));
+    party.addMember(Testicles);
+    Testicles.setPortrait(new Texture(Gdx.files.internal("Portraits/AlienKingPortrait.png")));
+    party.addMember(secondDummy);
+    secondDummy.setPortrait(new Texture(Gdx.files.internal("Portraits/SnowfflePortrait.png")));
+    this.partyUI = new PartyUI(party);
+    */
+
+        // If you want, create the Party with the PlayerCharacter passed from creation
         Party party = new Party();
-        party.addMember(testDummy);
-        party.addMember(AverageDummy);
-        AverageDummy.setPortrait(new Texture(Gdx.files.internal("Portraits/FlyPortrait.png")));
-        party.addMember(Testicles);
-
-        Testicles.setPortrait(new Texture(Gdx.files.internal("Portraits/AlienKingPortrait.png")));
-        party.addMember(secondDummy);
-        secondDummy.setPortrait(new Texture(Gdx.files.internal("Portraits/SnowfflePortrait.png")));
-        this.partyUI = new PartyUI(party);  // Assuming your party instance exists
-
-        // add members etc.
+        party.addMember(player.getPc()); // <-- uncomment when using creation screen PC
         partyUI = new PartyUI(party);
 
         // Associate player with map
@@ -154,7 +132,6 @@ public class GameScreen implements Screen {
 
         isPaused = false;
     }
-
     //Allows grabbing info for UI setup
     public static Log getLog() {
         return log;
@@ -219,4 +196,18 @@ public class GameScreen implements Screen {
     @Override public void pause() {}
     @Override public void resume() {}
     @Override public void hide() {}
+
+    public void setPlayerCharacter(PlayerCharacter pc) {
+        this.playerCharacter = pc;
+
+        // Initialize the party and UI now that we have a valid PC
+        Party party = new Party();
+        party.addMember(pc);
+
+        // If you want, add other party members later
+        partyUI = new PartyUI(party);
+
+        // Make sure your player object knows about this PC
+        player.setPc(pc);
+    }
 }

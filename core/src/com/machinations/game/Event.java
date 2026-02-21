@@ -200,7 +200,7 @@ public class Event {
 
                     if (dialogueSystem != null) {
                         List<Dialogue> dialogues = List.of(
-                                new Dialogue("Narrator", "You gaze out the window, observing the world beyond.", null)
+                                new Dialogue("Narrator", "You gaze out the window, observing the worlds beyond.", null)
                         );
                         dialogueSystem.clear();
                         dialogueSystem.addDialogues(dialogues);

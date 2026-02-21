@@ -3,6 +3,7 @@ package com.machinations.game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -64,6 +65,7 @@ public class PlayerCharacter {
     private int currentHp;  // Variable to track current health
     private Dice rangedDamageDice; // Variable for ranged damage dice
     private Dice closeDamageDice;  // Variable for close damage dice
+    private Dice ArmourDie;
     private RaceTrait raceTrait;
 
     private Set<DamageType> resistances = new HashSet<>();
@@ -71,7 +73,7 @@ public class PlayerCharacter {
 
     private ClassLevelProgression classLevelProgression;
     private Skills skills;
-
+    private ArrayList<RaceTrait> raceTraits;
 
 
     public PlayerCharacter(String name, String species, String classType, ClassLevelProgression classLevelProgression,
@@ -112,6 +114,7 @@ public class PlayerCharacter {
         this.closeDamageBonus = this.attackBonus + this.strMod;
         this.attackBonus = 0;
         this.swimspeed = this.speed/2;
+
 
         this.currentHp = this.health;  // Initialize currentHp to be equal to health
         this.MaxHP = currentHp; //Sets initial max HP to the health, in line with motsp, so if you start with a d4 health die, you get 4 hp.
@@ -215,6 +218,10 @@ public class PlayerCharacter {
         skills.setSkillValue(Skills.Skill.TRAINED_ANIMAL, 0);
         skills.setSkillValue(Skills.Skill.XENOARCHAEOLOGY, 0);
         skills.setSkillValue(Skills.Skill.XENOPSYCH, 0);
+    }
+
+    public void setRaceTraits(ArrayList<RaceTrait> traits) {
+        this.raceTraits = traits;
     }
 
     // Method to gain experience points and check for level up
@@ -504,7 +511,7 @@ public class PlayerCharacter {
 
     //So this makes it easier to manage speaking, you can supply a dialogue like this:
     /// dialogueSystem.addDialogue(player.speak("I am the man"));
-    /// So this'll take the player
+    /// So this'll take the player and have them speak the line given
 
     public Dialogue speak(String text) {
         return new Dialogue("PC", text, portrait);
@@ -646,39 +653,39 @@ public class PlayerCharacter {
     private void setArmorProperties(String armorType) {
         switch (armorType) {
             case "Ultralight":
-                this.armorDamageNegation = 1;
+                this.ArmourDie = new Dice(1);   // always rolls 1
                 this.armorDefensePenalty = 0;
                 break;
             case "Very Light":
-                this.armorDamageNegation = rollDamageDie(2);
+                this.ArmourDie = new Dice(2);
                 this.armorDefensePenalty = 0;
                 break;
             case "Light":
-                this.armorDamageNegation = rollDamageDie(3);
+                this.ArmourDie = new Dice(3);
                 this.armorDefensePenalty = 0;
                 break;
             case "Medium":
-                this.armorDamageNegation = rollDamageDie(4);
+                this.ArmourDie = new Dice(4);
                 this.armorDefensePenalty = 0;
                 break;
             case "Heavy":
-                this.armorDamageNegation = rollDamageDie(6);
+                this.ArmourDie = new Dice(6);
                 this.armorDefensePenalty = 1;
                 break;
             case "Very Heavy":
-                this.armorDamageNegation = rollDamageDie(8);
+                this.ArmourDie = new Dice(8);
                 this.armorDefensePenalty = 1;
                 break;
             case "Ultra Heavy":
-                this.armorDamageNegation = rollDamageDie(10);
+                this.ArmourDie = new Dice(10);
                 this.armorDefensePenalty = 2;
                 break;
             case "Juggernaut":
-                this.armorDamageNegation = rollDamageDie(12);
+                this.ArmourDie = new Dice(12);
                 this.armorDefensePenalty = 3;
                 break;
             default:
-                this.armorDamageNegation = 0;
+                this.ArmourDie = null;
                 this.armorDefensePenalty = 0;
                 break;
         }
@@ -707,13 +714,22 @@ public class PlayerCharacter {
     // Getter and setter for attackBonus
 
     public void receiveDamage(int damage, DamageType damageType) {
+
+        // Armour: roll per hit
+        if (ArmourDie != null) {
+            int negation = ArmourDie.roll();
+            damage = Math.max(damage - negation, 0);
+        }
+
+        // Resistances / vulnerabilities
         if (resistances.contains(damageType)) {
             damage /= 2;
         } else if (vulnerabilities.contains(damageType)) {
             damage *= 2;
         }
+
         this.health -= damage;
-        if (this.health < 0) this.health = 0; // Prevent health from going negative
+        if (this.health < 0) this.health = 0;
     }
 
 

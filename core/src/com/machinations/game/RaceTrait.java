@@ -1,9 +1,14 @@
 package com.machinations.game;
 
-public abstract class RaceTrait {
-    public abstract void applyEffect(PlayerCharacter playerCharacter);
-    public abstract String getDescription();
+import java.util.ArrayList;
 
+public abstract class RaceTrait {
+
+    private ArrayList<RaceTrait> raceTraits = new ArrayList<>();
+
+    public abstract void applyEffect(PlayerCharacter playerCharacter);
+
+    public abstract String getDescription();
 
 
     public static boolean isHumanoidTrait(Class<? extends RaceTrait> traitClass) {
@@ -81,13 +86,10 @@ public abstract class RaceTrait {
     }
 
 
-
-
-
     public static class Swimming extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
-            playerCharacter.setSwimspeed(playerCharacter.getSwimspeed()*2);
+            playerCharacter.setSwimspeed(playerCharacter.getSwimspeed() * 2);
         }
 
         @Override
@@ -141,7 +143,7 @@ public abstract class RaceTrait {
 
         @Override
         public String getDescription() {
-            return "Radioactive? No, Radiodocile. gain Resistance to radiation (and energy damage)";
+            return "Radioactive? No, Radiodocile. gain resistance to radiation (and energy damage)";
         }
     }
 
@@ -332,7 +334,7 @@ public abstract class RaceTrait {
 
         @Override
         public String getDescription() {
-            return "Moderation is for cowards, so eat, drink and make merry, for tomorrow you'll probably get someone to die for you gain + 2 Constition and -1 Wisdom.";
+            return "Moderation is for cowards, so eat, drink and make merry, for tomorrow you'll probably get someone to die for your gain + 2 Constition and -1 Wisdom.";
         }
     }
 
@@ -364,7 +366,7 @@ public abstract class RaceTrait {
     public static class Spines extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
-           /// Enemies must make a reflex save or take a d4 of damage, add this when Combat's in
+            /// Enemies must make a reflex save or take a d4 of damage, add this when Combat's in
         }
 
         @Override
@@ -426,7 +428,7 @@ public abstract class RaceTrait {
     public static class Fire extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
-           /// gain nautral weapon that deals 1d4 fire damage, use the spines mechanic but with toughness not reflexes for 1d4 fire dam
+            /// gain nautral weapon that deals 1d4 fire damage, use the spines mechanic but with toughness not reflexes for 1d4 fire dam
             playerCharacter.addResistance(DamageType.HEAT);
             playerCharacter.addVulnerability(DamageType.COLD);
         }
@@ -440,7 +442,7 @@ public abstract class RaceTrait {
     public static class Earth extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
-           /// Increase armour rolls by +1
+            /// Increase armour rolls by +1
             //+1 con (too fucking lazy to do it)
         }
 
@@ -489,7 +491,13 @@ public abstract class RaceTrait {
     /// Toxic Gas: You can expel a cloud of toxic gas two metres around yourself in every direction. Those in the cloud must make a
     /// Toughness save or take D4 damage. You can step this up by taking it multiple times. You are unaffected by the cloud and it
     /// can last several turns.
-    ///Ok so these are the exotic attacks, i have no idea if i can implement these properly
+    /// Ok so these are the exotic attacks, i have no idea if i can implement these properly
+    ///
+    /// Descriptions:
+    /// Dart: You're always a favourite on darts night at the pub, you can shoot a dart or quill from your body, starting as a D4 piercing weapon, you can take this multiple times to increase it's damage by one die.
+    /// Electroshock: You're very electrocute. You can make a hand to hand attack, where the enemy must make a toughness save, if they fail, they are stunned for 1d6 turns.
+    /// Firebreathing: You spit straight fire. you can emit a jet of flame that deals 1d4 fire damage to all enemies, but they have anopprtunity to dodge with a reflex save, you can take this multiple times to increase it's damage by one die.
+    /// Sonic Boom: Shouting matches among your species can be fatal,you can emit a jet of flame that deals 1d4 energy damage to all enemies, but they have anopprtunity to withstand it with a toughness save, you can take this multiple times to increase it's damage by one die.
 
     public static class Graceful extends RaceTrait {
         @Override
@@ -535,7 +543,7 @@ public abstract class RaceTrait {
 
         @Override
         public String getDescription() {
-            return "THIS IS MY RIFLE, THERE ARE MANY LIKE IT BUT THIS ONE IS MINE.";
+            return "THIS IS MY HOLORIFLE, THERE ARE MANY LIKE IT BUT THIS ONE IS MINE. GAIN +1 TO A CHOSEN WEAPON SKILL,MAGGOT!";
         }
     }
 
@@ -616,12 +624,12 @@ public abstract class RaceTrait {
     public static class ColdBlooded extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
-           //gain +1 will and toughness
+            //gain +1 will and toughness
         }
 
         @Override
         public String getDescription() {
-            return "";
+            return "Your passions run cold, gain +1 to will and toughness saves";
         }
     }
 
@@ -640,34 +648,11 @@ public abstract class RaceTrait {
     //Fuel eater's purely roleplaying based, eating the worst kind of stuff imaginable, but there's a few of these traits, maybe think about ways to implement them
 
 
-
-
-
+    /// "Take a cup of Sarin Gas, and a pinch of plutonium" is a common sight in your species cookbooks, you can eat material others would refuse to, but at
+    /// the expense of others being pretty grossed out
 
 
     //So self protecting should go here but it's redundant with mindful, so i'm not writing it again
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     public static class Fecund extends RaceTrait {
@@ -688,6 +673,7 @@ public abstract class RaceTrait {
             playerCharacter.setCanFly(true);
             playerCharacter.setSpeed(playerCharacter.getSpeed() / 2);
         }
+
         @Override
         public String getDescription() {
             return "Your species developed a biological form of propulsion, you can fly naturally, but move half as fast.";
@@ -698,12 +684,12 @@ public abstract class RaceTrait {
     public static class SlowMetabolism extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
-           ///Implement after saving rolls are in
+            ///Implement after saving rolls are in
         }
 
         @Override
         public String getDescription() {
-            return "Your Body's built to weed out Toxins and Disease, you gain a +5 to saving rolls against Poison and Disease";
+            return "If you ever had Gonorrhea, don't worry - it's now 'Gone'orrhea, you gain a +5 to saving rolls against Poison and Disease";
         }
     }
 
@@ -712,12 +698,14 @@ public abstract class RaceTrait {
         public void applyEffect(PlayerCharacter playerCharacter) {
             playerCharacter.setCanFitThroughSmallSpaces(true); // Example effect
         }
+
         @Override
         public String getDescription() {
             return "An intensive amount of flexibility allows you to easily contract yourself to fit in small spaces";
         }
 
     }
+
     public static class Resilient extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
@@ -730,11 +718,13 @@ public abstract class RaceTrait {
             return "You're built like a ToughCo certified Brick Shithouse, and gain +1 to your Toughness and Power Saves";
         }
     }
+
     public static class Enduring extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
             playerCharacter.setConScore(playerCharacter.getConScore() + 1);
         }
+
         @Override
         public String getDescription() {
             return "'He Lives, and He lives, until all the lights go out' Gain +1 Constitution.";
@@ -894,6 +884,7 @@ public abstract class RaceTrait {
             return "Shields can take a hit, Guns can dish them out, only a Brain can build them, you gain +1 to your logic and will saves";
         }
     }
+
     public static class Thoughtful extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
@@ -905,6 +896,7 @@ public abstract class RaceTrait {
             return "You're clever enough to disregard the absurdity of reducing intelligence to a arbitrary statistic, that being said, you gain +1 to your intelligence score";
         }
     }
+
     public static class Beautiful extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
@@ -926,6 +918,7 @@ public abstract class RaceTrait {
             return "You are the difference between flirting and harassment, Gain +1 Charisma ";
         }
     }
+
     public static class Gregarious extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
@@ -948,6 +941,7 @@ public abstract class RaceTrait {
             return "'WOWEEEEE HUMMMANHUMMANAN BOING AWOOGA' Gain +1 to Looks and Charm saves.";
         }
     }
+
     public static class Flexible extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
@@ -959,6 +953,7 @@ public abstract class RaceTrait {
             return "You hold the Osinium medal in Gymanastics, gain +1 to to Refelex and Toughness saves.";
         }
     }
+
     public static class Boiling extends RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
@@ -971,10 +966,286 @@ public abstract class RaceTrait {
         }
     }
 
+    public static class Electrosense extends RaceTrait {
+        @Override
+        public void applyEffect(PlayerCharacter playerCharacter) {
+            /// Ok, so this one's weird, lets you sense electricity as a sense, i'm saying we can make checks if the player has this trait for certain perception checks
+            /// and provide a big bonus to it if they do
+        }
+
+        public String getDescription() {
+            return "In your culture, the seventh sense is the one that lets you see ghosts, your sixth does boring stuff, like allowing you to sense any nearby electrical current";
+        }
+    }
+
+    public static class Heatfeeder extends RaceTrait {
+        @Override
+        public void applyEffect(PlayerCharacter playerCharacter) {
+
+        }
+
+        public String getDescription() {
+            return "Your species can feed off incredible heat sources, gain +1 HP when exposed to heator fire, at the cost of constantly being angered by misleading hot-sauce ads.";
+        }
+    }
+
+    public static class Poisonous extends RaceTrait {
+        @Override
+        public void applyEffect(PlayerCharacter playerCharacter) {
+
+        }
+
+        public String getDescription() {
+            return "Your ancestors may have been eaten by predators, but they always got the last laugh, because of your toxic blood, any enemy or creature biting you must make a Toughness save or take D6\n" +
+                    "damage. You can coat your own weapons with your toxin by cutting yourself, taking 1 hit point of damage. This lasts for a\n" +
+                    "single hit";
+        }
+    }
+
+    public static class WarningSign extends RaceTrait {
+        @Override
+        public void applyEffect(PlayerCharacter playerCharacter) {
+
+        }
+
+        public String getDescription() {
+            return "Quite fortunately, Animals are put off by your technicolour skin, you are targeted last by them in combat";
+        }
+    }
+
+    public static class Woo extends RaceTrait {
+        @Override
+        public void applyEffect(PlayerCharacter playerCharacter) {
+
+        }
+
+        public String getDescription() {
+            return "Your mind's so open, it tends to let in a lot of guff, fortunately, a lot of that is thinly veiled psychic metaphor, gain +1 Psi Point";
+        }
+    }
+
+    public static class ZeroG extends RaceTrait {
+        @Override
+        public void applyEffect(PlayerCharacter playerCharacter) {
+
+        }
+
+        public String getDescription() {
+            return "Your species saw the weaker bones, muscular degeneration, and general hard times of space living, and immediately hopped to it before they even invented artificial gravity, you gain +3 to any checks made in low or zero gravity.";
+        }
+
+        public static class Tentacles extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+
+            }
+
+            public String getDescription() {
+                return "Mellekian Elapids, Boa Constrictors, Your arm, all of these are known for killing with their intense grip, gain +1 to rolls attempting to constrict and enemy, but -1 to escaping constriction. ";
+            }
+
+
+            // Add other traits as needed
+        }
+
+        public static class Slow extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+            /// You can take this to remove an attribute penalty for taking another trait, at the cost of halving your speed
+            }
+
+            public String getDescription() {
+                return "Look at a 10,000 year old Callistian Redwood and say that the flies at its base are the real winners, your movement speed is halved, but you can take another trait for free (pay no attribute penalty), you can take this trait twice.";
+            }
+
+
+            // Add other traits as needed
+        }
+
+        public static class Painless extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                /// +1 hp per level, and +1toughness save
+            }
+
+            public String getDescription() {
+                return "Whether through intense cultivation, a particularly pleasant ecosystem, or something else entirely, you have no pain response, gain +1 hp per level, and gain +1 to your toughness save.";
+            }
+
+
+            // Add other traits as needed
+        }
+
+        public static class SelfSustaining extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                /// Never need food if you've got sunlight, i'm saying we can adapt this to provide a bonus outside
+            }
+
+            public String getDescription() {
+                return "'Light food' is more literal for your species, you gain +2 ranged and close attack while under a star (outdoors)";
+            }
+
+
+            // Add other traits as needed
+        }
+
+        public static class NonCombat extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                /// Get a free extra trait (no penalty) in exchange for reducing closed and ranged attack
+            }
+
+            public String getDescription() {
+                return "War is a disease, and you aspire to cure it, gain a free extra trait, and the cost of -1 closed and ranged attack.";
+            }
+
+
+            // Add other traits as needed
+        }
+
+        public static class Immaterial extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                /// Ok so the original is no interacting with the world, we'll change it to it doesn't matter how clever you get, a laser will fry you regardless, you are capped to 1HP, but gain +2 skill points to ALL skills.
+            }
+
+            public String getDescription() {
+                return "Eschewing the physical world is truly transcendental, that being said, it doesn't matter how clever you get, a laser will fry you regardless, you are capped to 1HP, but gain +2 skill points to ALL skills.";
+            }
+        }
+
+            public static class Fur extends RaceTrait {
+                @Override
+                public void applyEffect(PlayerCharacter playerCharacter) {
+                    /// +2 to checks against weather
+                }
+
+                public String getDescription() {
+                    return "Your birthday suit's a bit warmer than others, gain +2 to checks against the effects of cold weather.";
+                }
+            }
+
+            public static class Fanatic extends RaceTrait {
+                @Override
+                public void applyEffect(PlayerCharacter playerCharacter) {
+                    /// +2 to checks against weather
+                }
+
+                public String getDescription() {
+                    return "Football Teams, Ideology, God, if you support anything, you don't do it by halves, gain +1 Will and Constitution.";
+                }
+            }
+
+        public static class Avatar extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                /// give popup to allow popup for either a device (define rules for these later, makes sense the player could buy like, i don't know, a ladderbot or some shit for climbing)
+                /// or ship, which would probably be a flat bonus to pilot skill and maybe some kind of ship combat bonus if we put that in the game
+            }
+
+            public String getDescription() {
+                return "You've got, or possibly are, a talking car, choose a machine to 'bond' with, gain +1 to rolls involving said machine";
+            }
+        }
+
+        public static class BrotherMachine extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                playerCharacter.getSkills().setSkillValue(Skills.Skill.TINKER,
+                        playerCharacter.getSkills().getSkillValue(Skills.Skill.TINKER) + 1);
+            }
+
+            public String getDescription() {
+                return "Y0U H4V3 4551NTY W1TH M4CH1N35. G41N +1 T0 Y0UR T1NK3R 5K1LL.";
+            }
+        }
+
+        public static class CodeBody extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                /// So, as a way to distinguish this from immaterial, I like the idea of something similar but more "digital", so locking the player from natural weapons
+                /// But improving their tech skills and maybe giving a bonus to laser weapons or something
+
+                /// Tenative idea: capped at 1 HP (like immaterial), but instead of skill monkey, we're talking glass cannon, no melee weapons, but something like a +3 for a chosen ranged weapon skill
+            }
+
+            public String getDescription() {
+                return "Sticks and stones can't break your (non-existent) bones, but Zip Bombs will definitely brick you, add explanation here when we've finalised penalty";
+            }
+        }
+
+        public static class Colony extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                /// Add physical damage resistance, add fire vulnerability
+            }
+
+            public String getDescription() {
+                return "You're a eusocialist, a crowd of technically distinct lifeforms stuffed into one convenient bag-of-person. Compared to '1r’s'—those boring, single-bodied creatures—you’re much more resilient. Gain resistance to physical damage, but suffer a vulnerability to fire.";
+            }
+        }
+
+        public static class ExtraAction extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                /// Add extra action
+            }
+
+            public String getDescription() {
+                return "Anything worth doing is worth doing twice, gain an extra action per turn.";
+            }
+        }
+
+        public static class Engineered extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                /// Gain +1 to all attributes, at a cost of maybe -2 to looks and charm save?
+            }
+
+            public String getDescription() {
+                return "To your species, DNA is basically lego, unfortunately, playing god with your own genetic code has given you the attitude of a haughty prick, gain +1 to ALL attributes, but -2 to your looks and charm saves.";
+            }
+        }
+
+        public static class FastMetabolism extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                /// +2 Dex,-5 to poision and disease saves
+            }
+
+            public String getDescription() {
+                return "Your species lives fast, and dies often, gain +2 Dex,-5 to poision and disease saves";
+            }
+        }
+
+        public static class Faz extends RaceTrait {
+            @Override
+            public void applyEffect(PlayerCharacter playerCharacter) {
+                ///Conditional bonus to certain checks based on vibration,like i guess help with mining, or sensing danger
+            }
+
+            public String getDescription() {
+                return "You're the guy the Energistic description was talking about, you can sense vibrations.";
+            }
+        }
 
 
 
 
 
-    // Add other traits as needed
+
+
+
+
+
+
+
+
+
+
+
+            // Add other traits as needed
+
+    }
 }
