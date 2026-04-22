@@ -2,6 +2,8 @@ package com.machinations.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
+import com.machinations.game.tags.ArmorDefinition;
+import com.machinations.game.tags.WeaponDefinition;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -79,10 +81,22 @@ public class PlayerCharacter {
     private int speed;
     private int swimspeed;
 
-    // ---------- Armour ----------
+    // ---------- Equipment slots ----------
+    private WeaponDefinition equippedCloseWeapon;
+    private WeaponDefinition equippedRangedWeapon;
+    private ArmorDefinition equippedArmor;
+
+    // ---------- Active armour state ----------
     private String armorType;
     private int armorDefensePenalty;
     private Dice armourDie;
+
+    // ---------- Legacy armour fallback ----------
+    private String legacyArmorType;
+    private int legacyArmorDefensePenalty;
+    private int legacyArmorRangedDefenceBonus;
+    private int legacyArmorCloseDefenceBonus;
+    private Dice legacyArmourDie;
 
     // ---------- Damage / resistances ----------
     private Dice rangedDamageDice;
@@ -143,9 +157,23 @@ public class PlayerCharacter {
     private Set<DamageType> baseResistances = new HashSet<>();
     private Set<DamageType> baseVulnerabilities = new HashSet<>();
 
+    private WeaponDefinition baseEquippedCloseWeapon;
+    private WeaponDefinition baseEquippedRangedWeapon;
+    private ArmorDefinition baseEquippedArmor;
+
+    private String baseArmorType;
+    private int baseArmorDefensePenalty;
+    private Dice baseArmourDie;
+
+    private String baseLegacyArmorType;
+    private int baseLegacyArmorDefensePenalty;
+    private int baseLegacyArmorRangedDefenceBonus;
+    private int baseLegacyArmorCloseDefenceBonus;
+    private Dice baseLegacyArmourDie;
+
     // -------------------------------------------------------------------------
     // Constructor
-    // NOTE: constructor order is now:
+    // NOTE: constructor order is:
     // str, dex, con, int, wis, cha, com
     // -------------------------------------------------------------------------
     public PlayerCharacter(String name,
@@ -310,9 +338,33 @@ public class PlayerCharacter {
         this.rangedDefence = 12 + dexMod;
         this.closeDefence = 12 + conMod;
 
-        // MOTSP: ranged damage uses Wisdom bonus, close damage uses Strength bonus
         this.rangedDamageBonus = wisMod;
         this.closeDamageBonus = strMod;
+
+        applyEquippedArmorStats();
+    }
+
+    private void applyEquippedArmorStats() {
+        this.armorType = null;
+        this.armourDie = null;
+        this.armorDefensePenalty = 0;
+
+        if (equippedArmor != null) {
+            this.armorType = equippedArmor.getName();
+            this.armourDie = equippedArmor.getArmourDie();
+            this.armorDefensePenalty = equippedArmor.getDefencePenalty();
+            this.rangedDefence += equippedArmor.getRangedDefenceBonus();
+            this.closeDefence += equippedArmor.getCloseDefenceBonus();
+            return;
+        }
+
+        if (legacyArmorType != null || legacyArmourDie != null) {
+            this.armorType = legacyArmorType;
+            this.armourDie = legacyArmourDie;
+            this.armorDefensePenalty = legacyArmorDefensePenalty;
+            this.rangedDefence += legacyArmorRangedDefenceBonus;
+            this.closeDefence += legacyArmorCloseDefenceBonus;
+        }
     }
 
     private int getModifier(int stat) {
@@ -434,6 +486,20 @@ public class PlayerCharacter {
 
         this.baseResistances = new HashSet<>(this.resistances);
         this.baseVulnerabilities = new HashSet<>(this.vulnerabilities);
+
+        this.baseEquippedCloseWeapon = this.equippedCloseWeapon;
+        this.baseEquippedRangedWeapon = this.equippedRangedWeapon;
+        this.baseEquippedArmor = this.equippedArmor;
+
+        this.baseArmorType = this.armorType;
+        this.baseArmorDefensePenalty = this.armorDefensePenalty;
+        this.baseArmourDie = this.armourDie;
+
+        this.baseLegacyArmorType = this.legacyArmorType;
+        this.baseLegacyArmorDefensePenalty = this.legacyArmorDefensePenalty;
+        this.baseLegacyArmorRangedDefenceBonus = this.legacyArmorRangedDefenceBonus;
+        this.baseLegacyArmorCloseDefenceBonus = this.legacyArmorCloseDefenceBonus;
+        this.baseLegacyArmourDie = this.legacyArmourDie;
     }
 
     public void resetToBaseState() {
@@ -483,6 +549,20 @@ public class PlayerCharacter {
 
         this.vulnerabilities.clear();
         this.vulnerabilities.addAll(baseVulnerabilities);
+
+        this.equippedCloseWeapon = baseEquippedCloseWeapon;
+        this.equippedRangedWeapon = baseEquippedRangedWeapon;
+        this.equippedArmor = baseEquippedArmor;
+
+        this.armorType = baseArmorType;
+        this.armorDefensePenalty = baseArmorDefensePenalty;
+        this.armourDie = baseArmourDie;
+
+        this.legacyArmorType = baseLegacyArmorType;
+        this.legacyArmorDefensePenalty = baseLegacyArmorDefensePenalty;
+        this.legacyArmorRangedDefenceBonus = baseLegacyArmorRangedDefenceBonus;
+        this.legacyArmorCloseDefenceBonus = baseLegacyArmorCloseDefenceBonus;
+        this.legacyArmourDie = baseLegacyArmourDie;
     }
 
     public void setRaceTraits(ArrayList<RaceTrait> traits) {
@@ -521,11 +601,47 @@ public class PlayerCharacter {
     // Combat / damage
     // -------------------------------------------------------------------------
     public int calculateRangedDamage() {
+        if (equippedRangedWeapon != null) {
+            return rangedDamageBonus + equippedRangedWeapon.getDamageDie().roll();
+        }
         return rangedDamageBonus + (rangedDamageDice != null ? rangedDamageDice.roll() : 0);
     }
 
     public int calculateCloseDamage() {
+        if (equippedCloseWeapon != null) {
+            return closeDamageBonus + equippedCloseWeapon.getDamageDie().roll();
+        }
         return closeDamageBonus + (closeDamageDice != null ? closeDamageDice.roll() : 0);
+    }
+
+    public DamageType getCurrentRangedDamageType() {
+        if (equippedRangedWeapon != null) {
+            return equippedRangedWeapon.getDamageType();
+        }
+        return DamageType.PHYSICAL;
+    }
+
+    public DamageType getCurrentCloseDamageType() {
+        if (equippedCloseWeapon != null) {
+            return equippedCloseWeapon.getDamageType();
+        }
+        return DamageType.PHYSICAL;
+    }
+
+    public int getTotalRangedAttackBonus() {
+        int bonus = attackBonus;
+        if (equippedRangedWeapon != null) {
+            bonus += equippedRangedWeapon.getAttackBonus();
+        }
+        return bonus;
+    }
+
+    public int getTotalCloseAttackBonus() {
+        int bonus = attackBonus;
+        if (equippedCloseWeapon != null) {
+            bonus += equippedCloseWeapon.getAttackBonus();
+        }
+        return bonus;
     }
 
     public void receiveDamage(int damage, DamageType damageType) {
@@ -551,49 +667,104 @@ public class PlayerCharacter {
     }
 
     // -------------------------------------------------------------------------
-    // Armour
+    // Equipment
+    // -------------------------------------------------------------------------
+    public WeaponDefinition getEquippedCloseWeapon() {
+        return equippedCloseWeapon;
+    }
+
+    public void equipCloseWeapon(WeaponDefinition weapon) {
+        this.equippedCloseWeapon = weapon;
+    }
+
+    public void unequipCloseWeapon() {
+        this.equippedCloseWeapon = null;
+    }
+
+    public WeaponDefinition getEquippedRangedWeapon() {
+        return equippedRangedWeapon;
+    }
+
+    public void equipRangedWeapon(WeaponDefinition weapon) {
+        this.equippedRangedWeapon = weapon;
+    }
+
+    public void unequipRangedWeapon() {
+        this.equippedRangedWeapon = null;
+    }
+
+    public ArmorDefinition getEquippedArmor() {
+        return equippedArmor;
+    }
+
+    public void equipArmor(ArmorDefinition armor) {
+        this.equippedArmor = armor;
+        recalculateCoreDerivedStats();
+    }
+
+    public void unequipArmor() {
+        this.equippedArmor = null;
+        recalculateCoreDerivedStats();
+    }
+
+    // -------------------------------------------------------------------------
+    // Legacy armour support
     // -------------------------------------------------------------------------
     public void setArmorType(String armorType) {
-        this.armorType = armorType;
+        this.legacyArmorType = armorType;
+        this.legacyArmorRangedDefenceBonus = 0;
+        this.legacyArmorCloseDefenceBonus = 0;
 
         switch (armorType) {
             case "Ultralight":
-                this.armourDie = new Dice(1);
-                this.armorDefensePenalty = 0;
+                this.legacyArmourDie = new Dice(1);
+                this.legacyArmorDefensePenalty = 0;
                 break;
             case "Very Light":
-                this.armourDie = new Dice(2);
-                this.armorDefensePenalty = 0;
+                this.legacyArmourDie = new Dice(2);
+                this.legacyArmorDefensePenalty = 0;
                 break;
             case "Light":
-                this.armourDie = new Dice(3);
-                this.armorDefensePenalty = 0;
+                this.legacyArmourDie = new Dice(3);
+                this.legacyArmorDefensePenalty = 0;
                 break;
             case "Medium":
-                this.armourDie = new Dice(4);
-                this.armorDefensePenalty = 0;
+                this.legacyArmourDie = new Dice(4);
+                this.legacyArmorDefensePenalty = 0;
                 break;
             case "Heavy":
-                this.armourDie = new Dice(6);
-                this.armorDefensePenalty = 1;
+                this.legacyArmourDie = new Dice(6);
+                this.legacyArmorDefensePenalty = 1;
                 break;
             case "Very Heavy":
-                this.armourDie = new Dice(8);
-                this.armorDefensePenalty = 1;
+                this.legacyArmourDie = new Dice(8);
+                this.legacyArmorDefensePenalty = 1;
                 break;
             case "Ultra Heavy":
-                this.armourDie = new Dice(10);
-                this.armorDefensePenalty = 2;
+                this.legacyArmourDie = new Dice(10);
+                this.legacyArmorDefensePenalty = 2;
                 break;
             case "Juggernaut":
-                this.armourDie = new Dice(12);
-                this.armorDefensePenalty = 3;
+                this.legacyArmourDie = new Dice(12);
+                this.legacyArmorDefensePenalty = 3;
                 break;
             default:
-                this.armourDie = null;
-                this.armorDefensePenalty = 0;
+                this.legacyArmourDie = null;
+                this.legacyArmorDefensePenalty = 0;
+                this.legacyArmorType = null;
                 break;
         }
+
+        recalculateCoreDerivedStats();
+    }
+
+    public void clearLegacyArmor() {
+        this.legacyArmorType = null;
+        this.legacyArmorDefensePenalty = 0;
+        this.legacyArmorRangedDefenceBonus = 0;
+        this.legacyArmorCloseDefenceBonus = 0;
+        this.legacyArmourDie = null;
+        recalculateCoreDerivedStats();
     }
 
     // -------------------------------------------------------------------------
@@ -640,9 +811,7 @@ public class PlayerCharacter {
 
     public void setStrScore(int strScore) {
         this.strScore = strScore;
-        this.strMod = getModifier(strScore);
-        this.powerSave = halfRoundUp(strScore);
-        this.closeDamageBonus = this.strMod;
+        recalculateCoreDerivedStats();
     }
 
     public int getDexScore() {
@@ -651,9 +820,7 @@ public class PlayerCharacter {
 
     public void setDexScore(int dexScore) {
         this.dexScore = dexScore;
-        this.dexMod = getModifier(dexScore);
-        this.reflexSave = halfRoundUp(dexScore);
-        this.rangedDefence = 12 + this.dexMod;
+        recalculateCoreDerivedStats();
     }
 
     public int getConScore() {
@@ -662,9 +829,7 @@ public class PlayerCharacter {
 
     public void setConScore(int conScore) {
         this.conScore = conScore;
-        this.conMod = getModifier(conScore);
-        this.toughnessSave = halfRoundUp(conScore);
-        this.closeDefence = 12 + this.conMod;
+        recalculateCoreDerivedStats();
     }
 
     public int getIntScore() {
@@ -673,8 +838,7 @@ public class PlayerCharacter {
 
     public void setIntScore(int intScore) {
         this.intScore = intScore;
-        this.intMod = getModifier(intScore);
-        this.logicSave = halfRoundUp(intScore);
+        recalculateCoreDerivedStats();
     }
 
     public int getWisScore() {
@@ -683,9 +847,7 @@ public class PlayerCharacter {
 
     public void setWisScore(int wisScore) {
         this.wisScore = wisScore;
-        this.wisMod = getModifier(wisScore);
-        this.willSave = halfRoundUp(wisScore);
-        this.rangedDamageBonus = this.wisMod;
+        recalculateCoreDerivedStats();
     }
 
     public int getChaScore() {
@@ -694,8 +856,7 @@ public class PlayerCharacter {
 
     public void setChaScore(int chaScore) {
         this.chaScore = chaScore;
-        this.chaMod = getModifier(chaScore);
-        this.charmSave = halfRoundUp(chaScore);
+        recalculateCoreDerivedStats();
     }
 
     public int getComScore() {
@@ -704,8 +865,7 @@ public class PlayerCharacter {
 
     public void setComScore(int comScore) {
         this.comScore = comScore;
-        this.comMod = getModifier(comScore);
-        this.looksSave = halfRoundUp(comScore);
+        recalculateCoreDerivedStats();
     }
 
     public int getStrMod() {
