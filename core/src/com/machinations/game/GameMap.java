@@ -19,12 +19,13 @@ public class GameMap {
 
     private int[][] map;              // [x][y]
     private Event[][] events;         // [x][y]
-    private boolean[][] passability; // [x][y]
+    private boolean[][] passability;  // [x][y]
     private int[] triggerTilePosition = new int[2]; // {x, y}
     private Player player;
 
     private TextureRegion[] tileRegions; // Tiles from spritesheet
     private int currentMapIndex;
+    private EventRegistry eventRegistry;
 
     private static GameMap instance;
 
@@ -34,11 +35,10 @@ public class GameMap {
         this.currentMapIndex = mapIndex;
         loadMapFromJson(mapIndex);
         this.events = new Event[getWidth()][getHeight()];
-
     }
 
     // Singleton access
-    public static GameMap getInstance(TextureRegion[] tileRegions, int mapIndex){
+    public static GameMap getInstance(TextureRegion[] tileRegions, int mapIndex) {
         if (instance == null || instance.currentMapIndex != mapIndex) {
             instance = new GameMap(tileRegions, mapIndex);
         }
@@ -56,9 +56,9 @@ public class GameMap {
 
             // mapData.tiles is [y][x], top row first
             int[][] original = mapData.tiles;
-            int height = original.length;          // number of rows
-            int width = original[0].length;        // number of columns
-            map = new int[width][height];          // [x][y]
+            int height = original.length;
+            int width = original[0].length;
+            map = new int[width][height]; // [x][y]
 
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
@@ -70,8 +70,6 @@ public class GameMap {
             passability = createPassabilityMap(map);
             triggerTilePosition = findTriggerTilePosition(map);
 
-
-
         } catch (Exception e) {
             throw new RuntimeException("Error loading map JSON: " + filename, e);
         }
@@ -79,8 +77,8 @@ public class GameMap {
 
     // Generate passability grid
     private boolean[][] createPassabilityMap(int[][] map) {
-        int width = map.length;     // number of columns (x)
-        int height = map[0].length; // number of rows (y)
+        int width = map.length;
+        int height = map[0].length;
 
         boolean[][] passMap = new boolean[width][height];
         for (int x = 0; x < width; x++) {
@@ -105,14 +103,12 @@ public class GameMap {
         return new int[]{-1, -1};
     }
 
-    // Get width (number of columns)
     public int getWidth() {
-        return map.length;  // x dimension
+        return map.length;
     }
 
-    // Get height (number of rows)
     public int getHeight() {
-        return map[0].length; // y dimension
+        return map[0].length;
     }
 
     public int[][] getMap() {
@@ -127,7 +123,6 @@ public class GameMap {
         return triggerTilePosition;
     }
 
-    // Draw tiles scaled up from 40x40 spritesheet tiles to 96x96
     public void draw(SpriteBatch batch) {
         int width = getWidth();
         int height = getHeight();
@@ -165,12 +160,10 @@ public class GameMap {
             System.out.println("Error: player is null in transportPlayer!");
             return;
         }
-        this.player = player; // <-- assign here so getPlayer() works
 
+        this.player = player;
+        setMapIndex(mapIndex);
         player.setPosition(posX, posY);
-
-        setMapIndex(mapIndex); // this loads the map JSON and resets events
-
 
         System.out.println("Player transported to map " + mapIndex + " at position (" + posX + ", " + posY + ")");
     }
@@ -178,6 +171,46 @@ public class GameMap {
     public void addEventTile(int x, int y, Event event) {
         if (x >= 0 && y >= 0 && x < events.length && y < events[0].length) {
             events[x][y] = event;
+        }
+    }
+
+    public void setEventRegistry(EventRegistry eventRegistry) {
+        this.eventRegistry = eventRegistry;
+    }
+
+    public void populateEvents(EventRegistry registry) {
+        this.events = new Event[getWidth()][getHeight()];
+        populateSemanticEvents(registry);
+        populateUniqueEvents(registry);
+    }
+
+    private void populateSemanticEvents(EventRegistry registry) {
+        for (int x = 0; x < getWidth(); x++) {
+            for (int y = 0; y < getHeight(); y++) {
+                int tileId = map[x][y];
+
+                switch (tileId) {
+                    case 6:
+                        addEventTile(x, y, registry.getEvent("LOOK_OUT_WINDOW"));
+                        break;
+                    case 9:
+                        addEventTile(x, y, registry.getEvent("HACK_TERMINAL"));
+                        break;
+                    // case 10:
+                    //     addEventTile(x, y, registry.getEvent("SEARCH_SCENERY"));
+                    //     break;
+                }
+            }
+        }
+    }
+
+    private void populateUniqueEvents(EventRegistry registry) {
+        switch (currentMapIndex) {
+            case 4:
+                addEventTile(6, 6, registry.getEvent("MAP4_TRANSPORT"));
+                break;
+            default:
+                break;
         }
     }
 
@@ -210,7 +243,9 @@ public class GameMap {
         loadMapFromJson(newIndex);
         this.events = new Event[getWidth()][getHeight()];
 
-
+        if (eventRegistry != null) {
+            populateEvents(eventRegistry);
+        }
     }
 
     public Player getPlayer() {
@@ -238,6 +273,4 @@ public class GameMap {
     public void setPlayer(Player player) {
         this.player = player;
     }
-
-
 }

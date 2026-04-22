@@ -17,6 +17,7 @@ public class Event {
     private final Log log;
     private final boolean skillCheckRequired;  // <-- new flag
 
+
     private static final Texture SUCCESS_PORTRAIT = new Texture(Gdx.files.internal("Portraits/success.png"));
     private static final Texture FAILURE_PORTRAIT = new Texture(Gdx.files.internal("Portraits/failure.png"));
 
@@ -48,10 +49,10 @@ public class Event {
 
         if (success) {
             successEffect.accept(playerCharacter);
-            triggerDialogue(true);
+           // triggerDialogue(true);
         } else {
             failEffect.accept(playerCharacter);
-            triggerDialogue(false);
+           // triggerDialogue(false);
         }
 
         System.out.println("Event triggered for " + playerCharacter.getName());

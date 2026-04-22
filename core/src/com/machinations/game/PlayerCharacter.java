@@ -73,6 +73,17 @@ public class PlayerCharacter {
 
     private ClassLevelProgression classLevelProgression;
     private Skills skills;
+
+    private int baseStrScore;
+    private int baseDexScore;
+    private int baseConScore;
+    private int baseIntScore;
+    private int baseWisScore;
+    private int baseChaScore;
+    private int baseComScore;
+
+    private int baseUnspentSkillPoints;
+    private Skills baseSkills;
     private ArrayList<RaceTrait> raceTraits;
 
 
@@ -143,6 +154,48 @@ public class PlayerCharacter {
                 initializeGeneralSkills();
                 break;
         }
+    }
+
+    public void resetToBaseState() {
+        this.strScore = baseStrScore;
+        this.dexScore = baseDexScore;
+        this.conScore = baseConScore;
+        this.intScore = baseIntScore;
+        this.wisScore = baseWisScore;
+        this.chaScore = baseChaScore;
+        this.comScore = baseComScore;
+
+        this.strMod = getModifier(strScore);
+        this.dexMod = getModifier(dexScore);
+        this.conMod = getModifier(conScore);
+        this.intMod = getModifier(intScore);
+        this.wisMod = getModifier(wisScore);
+        this.chaMod = getModifier(chaScore);
+        this.comMod = getModifier(comScore);
+
+        this.reflexSave = dexScore / 2;
+        this.charmSave = chaScore / 2;
+        this.toughnessSave = conScore / 2;
+        this.logicSave = intScore / 2;
+        this.willSave = wisScore / 2;
+        this.powerSave = strScore / 2;
+        this.looksSave = comScore / 2;
+
+        this.rangedDefence = 12 + dexMod;
+        this.closeDefence = 12 + conMod;
+        this.rangedDamageBonus = attackBonus + dexMod;
+        this.closeDamageBonus = attackBonus + strMod;
+
+        this.unspentSkillPoints = baseUnspentSkillPoints;
+        this.skills = baseSkills.copy(); // make a real copy method
+
+        this.resistances.clear();
+        this.vulnerabilities.clear();
+
+        this.canFly = false;
+        this.canFitThroughSmallSpaces = false;
+        this.speed = 10;
+        this.swimspeed = this.speed / 2;
     }
 
     private void initializeGeneralSkills() {

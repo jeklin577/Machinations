@@ -8,6 +8,14 @@ public class Skills {
         skillValues.put(skill, getSkillValue(skill) + 1);
     }
 
+    public Skills copy() {
+        Skills clone = new Skills();
+        for (Skill skill : Skill.values()) {
+            clone.setSkillValue(skill, this.getSkillValue(skill));
+        }
+        return clone;
+    }
+
     public enum Skill {
         // Everyman Skills
         CLIMB(SkillType.EVERYMAN),

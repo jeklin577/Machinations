@@ -25,6 +25,7 @@ public class GameScreen implements Screen {
     private PlayerCharacter playerCharacter; // store it here
 
     private Texture[] playerTextures;
+    private EventRegistry eventRegistry;
 
     private boolean isPaused;
 
@@ -63,6 +64,13 @@ public class GameScreen implements Screen {
 
         Skin skin = new Skin(Gdx.files.internal("uiskin.json"));
         dialogueSystem = new DialogueSystem(skin);
+
+        map = GameMap.getInstance(tileRegions, 0);
+
+
+        eventRegistry = new EventRegistry(map, dialogueSystem, log);
+        map.setEventRegistry(eventRegistry);
+        map.populateEvents(eventRegistry);
 
         // Create Player instance
         player = new Player(

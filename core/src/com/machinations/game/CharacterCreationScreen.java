@@ -55,6 +55,10 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
     private TextField nameField;
     private TextField speciesField;
 
+    private final Map<Class<? extends RaceTrait>, Label> traitCountLabels = new HashMap<>();
+    private final ArrayList<Integer> extraTraitPenaltyAssignments = new ArrayList<>();
+    private int[] rolledBaseStats = new int[ABILITIES.length];
+
     private Machinations game; // store reference
 
 
@@ -104,6 +108,159 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         } else {
             return 0; // fallback
         }
+    }
+
+    private void refreshAbilityFieldsFromBaseStats() {
+        for (int i = 0; i < ABILITIES.length; i++) {
+            int penalty = statPenalties.getOrDefault(i, 0);
+            abilityFields[i].setText(String.valueOf(rolledBaseStats[i] + penalty));
+        }
+    }
+
+    private void recomputeTraitPenalties() {
+        statPenalties.clear();
+
+        int extraTraits = Math.max(0, selectedTraits.size() - MAX_TRAITS);
+        while (extraTraitPenaltyAssignments.size() > extraTraits) {
+            extraTraitPenaltyAssignments.remove(extraTraitPenaltyAssignments.size() - 1);
+        }
+
+        for (Integer statIndex : extraTraitPenaltyAssignments) {
+            int currentPenalty = statPenalties.getOrDefault(statIndex, 0);
+            int nextPenalty = currentPenalty - 4;
+            if (nextPenalty < -8) {
+                nextPenalty = -8;
+            }
+            statPenalties.put(statIndex, nextPenalty);
+        }
+
+        refreshAbilityFieldsFromBaseStats();
+    }
+
+    private boolean canApplyAdditionalPenalty(int statIndex) {
+        int currentPenalty = statPenalties.getOrDefault(statIndex, 0);
+        return currentPenalty - 4 >= -8;
+    }
+
+    private void updateTraitCountLabels() {
+        for (Class<? extends RaceTrait> traitClass : ALL_TRAITS) {
+            Label countLabel = traitCountLabels.get(traitClass);
+            if (countLabel != null) {
+                countLabel.setText(String.valueOf(Collections.frequency(selectedTraits, traitClass)));
+            }
+        }
+    }
+
+    private void promptForExtraPenaltyStat(final Class<? extends RaceTrait> justAddedTrait) {
+        final Dialog dialog = new Dialog("Choose a Stat to Reduce", skin);
+        dialog.text("Pick a stat to take -4 for this extra trait.");
+
+        for (int i = 0; i < ABILITIES.length; i++) {
+            final int statIndex = i;
+            TextButton button = new TextButton(ABILITIES[i], skin);
+
+            if (!canApplyAdditionalPenalty(statIndex)) {
+                button.setDisabled(true);
+            }
+
+            button.addListener(new ChangeListener() {
+                @Override
+                public void changed(ChangeEvent event, Actor actor) {
+                    if (!canApplyAdditionalPenalty(statIndex)) return;
+
+                    extraTraitPenaltyAssignments.add(statIndex);
+                    recomputeTraitPenalties();
+                    updateTraitCountLabels();
+                    updateSelectedTraitsLabel();
+                    dialog.hide();
+                }
+            });
+
+            dialog.getContentTable().add(button).pad(4).row();
+        }
+
+        TextButton cancelButton = new TextButton("Cancel", skin);
+        cancelButton.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                selectedTraits.remove(justAddedTrait);
+                recomputeTraitPenalties();
+                updateTraitCountLabels();
+                updateSelectedTraitsLabel();
+                dialog.hide();
+            }
+        });
+
+        dialog.button(cancelButton);
+        dialog.show(stage);
+    }
+
+    private Table createTraitRow(final Class<? extends RaceTrait> traitClass) {
+        Table row = new Table();
+
+        Label nameLabel = new Label(traitClass.getSimpleName(), whiteLabelStyle);
+        final Label countLabel = new Label("0", whiteLabelStyle);
+        traitCountLabels.put(traitClass, countLabel);
+
+        TextButton minusButton = new TextButton("-", skin);
+        TextButton plusButton = new TextButton("+", skin);
+
+        minusButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                if (selectedTraits.remove(traitClass)) {
+                    int extraTraitsNeeded = Math.max(0, selectedTraits.size() - MAX_TRAITS);
+                    while (extraTraitPenaltyAssignments.size() > extraTraitsNeeded) {
+                        extraTraitPenaltyAssignments.remove(extraTraitPenaltyAssignments.size() - 1);
+                    }
+
+                    recomputeTraitPenalties();
+                    updateTraitCountLabels();
+                    updateSelectedTraitsLabel();
+                }
+            }
+        });
+
+        plusButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                if (!statsrolled) {
+                    Dialog warning = new Dialog("Stats Not Rolled", skin);
+                    warning.text("Please roll your stats before selecting race traits.");
+                    warning.button("OK");
+                    warning.show(stage);
+                    return;
+                }
+
+                selectedTraits.add(traitClass);
+
+                int extraTraitsNeeded = Math.max(0, selectedTraits.size() - MAX_TRAITS);
+
+                if (extraTraitsNeeded > extraTraitPenaltyAssignments.size()) {
+                    if (extraTraitsNeeded == 1) {
+                        extraTraitPenaltyAssignments.add(5); // Charisma for the 4th trait
+                        recomputeTraitPenalties();
+                        updateTraitCountLabels();
+                        updateSelectedTraitsLabel();
+                    } else {
+                        updateTraitCountLabels();
+                        updateSelectedTraitsLabel();
+                        promptForExtraPenaltyStat(traitClass);
+                    }
+                } else {
+                    recomputeTraitPenalties();
+                    updateTraitCountLabels();
+                    updateSelectedTraitsLabel();
+                }
+            }
+        });
+
+        row.add(nameLabel).width(180).left().padRight(10);
+        row.add(minusButton).width(35).padRight(5);
+        row.add(countLabel).width(30).center().padRight(5);
+        row.add(plusButton).width(35).left();
+
+        return row;
     }
 
     private PlayerCharacter buildPlayerCharacter() {
@@ -372,201 +529,47 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
     }
 
     private void setupUI() {
-
-
-        if (uiSetupComplete) return; // prevents double-setup
+        if (uiSetupComplete) return;
         uiSetupComplete = true;
-        System.out.println("Setting up UI");
 
         loadPortraits();
 
-        Table table = new Table();
-        ///table.setFillParent(true);
-        table.top().center();
-       // table.padTop(10).padRight(10);
-// table.debug(); // Uncomment to debug layout
-//Scrollpanestyle
+        ScrollPane.ScrollPaneStyle scrollStyle = new ScrollPane.ScrollPaneStyle();
+        scrollStyle.background = skin.newDrawable("white", new Color(0.1f, 0.1f, 0.1f, 0.5f));
+        scrollStyle.vScroll = skin.newDrawable("white", Color.DARK_GRAY);
+        scrollStyle.vScrollKnob = skin.newDrawable("white", Color.LIGHT_GRAY);
+        skin.add("default", scrollStyle, ScrollPane.ScrollPaneStyle.class);
 
-        ScrollPane.ScrollPaneStyle defaultScrollStyle = new ScrollPane.ScrollPaneStyle();
-        defaultScrollStyle.background = skin.newDrawable("white", new Color(0.1f,0.1f,0.1f,0.5f));
-        defaultScrollStyle.vScroll = skin.newDrawable("white", Color.DARK_GRAY);
-        defaultScrollStyle.vScrollKnob = skin.newDrawable("white", Color.LIGHT_GRAY);
-        skin.add("default", defaultScrollStyle, ScrollPane.ScrollPaneStyle.class);
 
-// White label style
-        whiteLabelStyle = new Label.LabelStyle();
-        whiteLabelStyle.font = skin.getFont("main-font");
-        whiteLabelStyle.fontColor = Color.WHITE;
-
-        /// Window style
         Window.WindowStyle windowStyle = new Window.WindowStyle();
         windowStyle.titleFont = skin.getFont("main-font");
         windowStyle.titleFontColor = Color.WHITE;
         windowStyle.background = skin.newDrawable("white", new Color(0.1f, 0.1f, 0.1f, 0.9f));
 
         skin.add("default", windowStyle, Window.WindowStyle.class);
+        whiteLabelStyle = new Label.LabelStyle();
+        whiteLabelStyle.font = skin.getFont("main-font");
+        whiteLabelStyle.fontColor = Color.WHITE;
 
+        TextField.TextFieldStyle baseTextFieldStyle = skin.get(TextField.TextFieldStyle.class);
+        TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle(baseTextFieldStyle);
+        textFieldStyle.fontColor = Color.WHITE;
+        textFieldStyle.font = skin.getFont("main-font");
+        textFieldStyle.cursor = skin.newDrawable("white");
+        textFieldStyle.selection = skin.newDrawable("white", 0.3f, 0.3f, 1f, 0.5f);
+        textFieldStyle.background = skin.newDrawable("white", 0.05f, 0.05f, 0.05f, 0.5f);
 
-// Roll Mode Selector
-        Table rollModeTable = new Table();
-        rollModeTable.align(Align.left);
-        rollModeTable.padBottom(20);
+        Table root = new Table();
+        root.setFillParent(true);
+        root.top().pad(10);
+        stage.addActor(root);
 
-        Label rollModeLabel = new Label("Roll Mode:", whiteLabelStyle);
-        rollModeValueLabel = new Label(rollModes[currentRollModeIndex], whiteLabelStyle);
-        rollModeValueLabel.setColor(Color.WHITE);
-
-        TextButton changeRollModeButton = new TextButton("Change", skin);
-        changeRollModeButton.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                rollModeValueLabel.setText(""); // optional clear
-
-                currentRollModeIndex = (currentRollModeIndex + 1) % rollModes.length;
-                rollModeValueLabel.setText(rollModes[currentRollModeIndex]);
-
-                System.out.println("Roll mode changed to: " + rollModes[currentRollModeIndex]);
-            }
-        });
-
-        rollModeTable.add(rollModeLabel).padRight(5);
-        rollModeTable.add(rollModeValueLabel).padRight(10).left();
-        rollModeTable.add(changeRollModeButton);
-
-        table.add(rollModeTable).expandX().fillX().right().padBottom(10);
-        table.row();
-
-
-// CheckBox style with default font (no drawables for minimal example)
-        CheckBox.CheckBoxStyle style = new CheckBox.CheckBoxStyle();
-        style.font = new BitmapFont();
-
-// Trait selection label
-        Label traitsLabel = new Label("Select Race Traits (max before penalties " + MAX_TRAITS + "):", whiteLabelStyle);
-        table.add(traitsLabel).right().padTop(20).row();
-
-
-        Table traitTable = new Table();
-        ScrollPane.ScrollPaneStyle scrollStyle = new ScrollPane.ScrollPaneStyle();
-        scrollStyle.background = skin.newDrawable("white", new Color(0.1f, 0.1f, 0.1f, 0.5f));
-        scrollStyle.vScroll = skin.newDrawable("white", Color.DARK_GRAY);
-        scrollStyle.vScrollKnob = skin.newDrawable("white", Color.LIGHT_GRAY);
-
-        ScrollPane scrollPane = new ScrollPane(traitTable, scrollStyle);
-        scrollPane.setFadeScrollBars(false);
-        scrollPane.setScrollingDisabled(true, false);
-        scrollPane.setScrollbarsOnTop(true);
-        scrollPane.setForceScroll(false, true);
-        scrollPane.setScrollingDisabled(false, false);
-        scrollPane.setSmoothScrolling(true);
-
-// Add checkboxes for each trait
-
-
-        for (Class<? extends RaceTrait> traitClass : ALL_TRAITS) {
-            String traitName = traitClass.getSimpleName();
-            CheckBox checkBox = new CheckBox(traitName, style);
-            checkBox.getLabel().setColor(Color.WHITE);
-
-            checkBox.addListener(new ChangeListener() {
-                @Override
-                public void changed(ChangeEvent event, Actor actor) {
-                    if (!statsrolled) {
-                        // ❌ Block trait selection and reset checkbox
-                        checkBox.setChecked(false);
-                        Dialog warning = new Dialog("Stats Not Rolled", skin);
-                        warning.text("Please roll your stats before selecting race traits.");
-                        warning.button("OK");
-                        warning.show(stage);
-                        return;
-                    }
-
-                    if (checkBox.isChecked()) {
-                        selectedTraits.add(traitClass);
-
-                        if (selectedTraits.size() > 3) {
-                            if (selectedTraits.size() == 4) {
-                                // First penalty automatically to Charisma
-                                applyPenalty(5, -4,null);
-                            } else {
-                                // Prompt player to pick a stat for -4 penalty, pass trait for cancel removal
-                                promptForPenaltyStat(traitClass);
-                            }
-                        }
-                    } else {
-                        selectedTraits.remove(traitClass);
-                        // optionally refund any penalties associated with this trait
-                    }
-
-                    updateSelectedTraitsLabel();
-                }
-            });
-
-            traitTable.add(checkBox).left().pad(5);
-            traitTable.row();
-        }
-
-        scrollPane.setHeight(150);
-        table.add(scrollPane).width(300).height(150).padBottom(20).right();
-        table.row();
-
-        classSelectBox = new SelectBox<>(skin);
-        classSelectBox.setItems("Expert", "Killer", "Scholar", "Psion");
-        classSelectBox.setSelected("Expert"); // Default selection
-
-
-
-        classSelectBox.addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                selectedClass = classSelectBox.getSelected(); // store new class
-
-                // Reset skills
-                playerSkills = new Skills();
-
-                // Reset unspent skill points
-                unspentSkillPoints = classLevelProgression.getSkillPointsForClassAndLevel(selectedClass, 1);
-
-                // Rebuild skill UI
-                updateSkillUI(selectedClass);
-
-                // Refresh unspent skill points label
-                updateUnspentSkillPointsLabel();
-            }
-        });
-
-        table.add(new Label("Class:", skin)).left().pad(5);
-        table.add(classSelectBox).fillX().pad(5);
-        table.row();
-
-
-// Portrait display
+        // Portrait
         portraitDisplay = new Image(portraits[currentPortraitIndex]);
         portraitDisplay.setScaling(Scaling.fit);
-// Will be added inside portraitControlTable later
 
-// Roll stats button
-
-
-
-// Title label
-        Label title = new Label("Character Creation - Stat Rolling", skin);
-        title.setColor(Color.WHITE);
-        table.add(title).padBottom(20).right();
-        table.row();
-
-// Portrait controls: prev/portrait/next buttons
-        Table portraitControlTable = new Table();
         TextButton prevButton = new TextButton("<", skin);
         TextButton nextButton = new TextButton(">", skin);
-
-        portraitControlTable.add(prevButton).padRight(5);
-        portraitControlTable.add(portraitDisplay).size(150, 150);
-        portraitControlTable.add(nextButton).padLeft(5);
-        portraitControlTable.align(Align.right);
-
-        table.add(portraitControlTable).right().padBottom(20);
-        table.row();
 
         prevButton.addListener(new ClickListener() {
             @Override
@@ -584,81 +587,59 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
             }
         });
 
+        Table portraitControlTable = new Table();
+        portraitControlTable.add(prevButton).padRight(5);
+        portraitControlTable.add(portraitDisplay).size(150, 150);
+        portraitControlTable.add(nextButton).padLeft(5);
 
-// Name input
-        Label nameLabel = new Label("Name:", whiteLabelStyle);
-        TextField.TextFieldStyle baseStyleTF2 = skin.get(TextField.TextFieldStyle.class);
-        TextField.TextFieldStyle textFieldStyle2 = new TextField.TextFieldStyle(baseStyleTF2);
-        textFieldStyle2.fontColor = Color.WHITE;
-        textFieldStyle2.font = skin.getFont("main-font");
-        textFieldStyle2.cursor = skin.newDrawable("white");
-        textFieldStyle2.selection = skin.newDrawable("white", 0.3f, 0.3f, 1f, 0.5f);
-        textFieldStyle2.background = skin.newDrawable("white", 0.05f, 0.05f, 0.05f, 0.5f);
-
-        nameField = new TextField("", textFieldStyle2);
+        // Name / species
+        nameField = new TextField("", textFieldStyle);
         nameField.setMessageText("Enter your character's name");
         nameField.setAlignment(Align.left);
 
-        Table nameTable = new Table();
-        nameTable.add(nameLabel).padRight(8);
-        nameTable.add(nameField).width(200);
-        nameTable.align(Align.right);
-
-        table.add(nameTable).expandX().fillX().right().padBottom(10);
-        table.row();
-
-
-
-
-// Species input
-        Label speciesLabel = new Label("Species:", whiteLabelStyle);
-        speciesField = new TextField("", textFieldStyle2);
+        speciesField = new TextField("", textFieldStyle);
         speciesField.setMessageText("Enter species name");
         speciesField.setAlignment(Align.left);
 
+        Table nameTable = new Table();
+        nameTable.add(new Label("Name:", whiteLabelStyle)).padRight(8);
+        nameTable.add(nameField).width(220);
+
         Table speciesTable = new Table();
-        speciesTable.add(speciesLabel).padRight(8);
-        speciesTable.add(speciesField).width(200);
-        speciesTable.align(Align.right);
+        speciesTable.add(new Label("Species:", whiteLabelStyle)).padRight(8);
+        speciesTable.add(speciesField).width(220);
 
-        table.add(speciesTable).expandX().fillX().right().padBottom(20);
-        table.row();
+        // Roll mode
+        rollModeValueLabel = new Label(rollModes[currentRollModeIndex], whiteLabelStyle);
+        TextButton changeRollModeButton = new TextButton("Change", skin);
+        changeRollModeButton.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                currentRollModeIndex = (currentRollModeIndex + 1) % rollModes.length;
+                rollModeValueLabel.setText(rollModes[currentRollModeIndex]);
+            }
+        });
 
-        //Race trait label
+        Table rollModeTable = new Table();
+        rollModeTable.add(new Label("Roll Mode:", whiteLabelStyle)).padRight(8);
+        rollModeTable.add(rollModeValueLabel).padRight(10);
+        rollModeTable.add(changeRollModeButton);
 
+        // Class select
+        classSelectBox = new SelectBox<>(skin);
+        classSelectBox.setItems("Expert", "Killer", "Scholar", "Psion");
+        classSelectBox.setSelected("Expert");
+        selectedClass = classSelectBox.getSelected();
 
-        Label.LabelStyle labelStyle = new Label.LabelStyle();
-        labelStyle.font = skin.getFont("main-font"); // use the font you know works
-        labelStyle.fontColor = Color.WHITE;
-
-        selectedTraitsLabel = new Label("Selected Traits: None", labelStyle);
-        table.row();
-        table.add(selectedTraitsLabel).left().pad(10);
-
-        updateSelectedTraitsLabel();
-
-// Ability Fields Table
+        // Abilities
         Table abilitiesTable = new Table();
 
         for (int i = 0; i < ABILITIES.length; i++) {
             abilityLabels[i] = new Label(ABILITIES[i] + ":", whiteLabelStyle);
 
-            TextField.TextFieldStyle baseStyleTF = skin.get(TextField.TextFieldStyle.class);
-            TextField.TextFieldStyle textFieldStyle = new TextField.TextFieldStyle(baseStyleTF);
-            textFieldStyle.fontColor = Color.WHITE;
-            textFieldStyle.font = skin.getFont("main-font");
-            textFieldStyle.cursor = skin.newDrawable("white");
-            textFieldStyle.selection = skin.newDrawable("white", 0.3f, 0.3f, 1f, 0.5f);
-            textFieldStyle.background = skin.newDrawable("white", 0.05f, 0.05f, 0.05f, 0.5f);
-
             abilityFields[i] = new TextField("", textFieldStyle);
             abilityFields[i].setDisabled(true);
             abilityFields[i].setAlignment(Align.center);
-
-            Table singleStatTable = new Table();
-            singleStatTable.add(abilityLabels[i]).padRight(8);
-            singleStatTable.add(abilityFields[i]).width(60);
-            singleStatTable.align(Align.right);
 
             final int statIndex = i;
             TextButton swapButton = new TextButton("Swap", skin);
@@ -668,23 +649,22 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
                     String mode = rollModes[currentRollModeIndex];
-                    if (!mode.equals("Pussy Mode") && !mode.equals("Normal Mode")) {
-                        return; // Disable swap in Easy/Hardcore modes
-                    }
+                    if (!statsrolled) return;
+                    if (!mode.equals("Pussy Mode") && !mode.equals("Normal Mode")) return;
 
                     if (firstSelectedIndex == null) {
                         firstSelectedIndex = statIndex;
-                        swapButtons[statIndex].setColor(Color.YELLOW); // Highlight first selection
+                        swapButtons[statIndex].setColor(Color.YELLOW);
                     } else if (firstSelectedIndex == statIndex) {
-                        swapButtons[statIndex].setColor(Color.WHITE); // Deselect
+                        swapButtons[statIndex].setColor(Color.WHITE);
                         firstSelectedIndex = null;
                     } else {
-                        // Swap text values
-                        String temp = abilityFields[firstSelectedIndex].getText();
-                        abilityFields[firstSelectedIndex].setText(abilityFields[statIndex].getText());
-                        abilityFields[statIndex].setText(temp);
+                        int temp = rolledBaseStats[firstSelectedIndex];
+                        rolledBaseStats[firstSelectedIndex] = rolledBaseStats[statIndex];
+                        rolledBaseStats[statIndex] = temp;
 
-                        // Reset highlights
+                        refreshAbilityFieldsFromBaseStats();
+
                         swapButtons[firstSelectedIndex].setColor(Color.WHITE);
                         swapButtons[statIndex].setColor(Color.WHITE);
                         firstSelectedIndex = null;
@@ -692,67 +672,92 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                 }
             });
 
+            Table singleStatTable = new Table();
+            singleStatTable.add(abilityLabels[i]).padRight(8);
+            singleStatTable.add(abilityFields[i]).width(60).padRight(8);
             singleStatTable.add(swapButton);
+
             abilitiesTable.add(singleStatTable).right();
             abilitiesTable.row();
         }
 
-        table.add(abilitiesTable).right();
-        table.row();
+        // Traits
+        Label traitsLabel = new Label("Select Race Traits:", whiteLabelStyle);
 
+        Table traitTable = new Table();
+        for (Class<? extends RaceTrait> traitClass : ALL_TRAITS) {
+            traitTable.add(createTraitRow(traitClass)).left().pad(4).row();
+        }
+
+        ScrollPane traitScrollPane = new ScrollPane(traitTable, skin);
+        traitScrollPane.setFadeScrollBars(false);
+        traitScrollPane.setScrollingDisabled(true, false);
+        traitScrollPane.setScrollbarsOnTop(true);
+        traitScrollPane.setSmoothScrolling(true);
+
+        selectedTraitsLabel = new Label("Selected Traits: (none)", whiteLabelStyle);
+        selectedTraitsLabel.setWrap(true);
+
+        // Roll button
         TextButton rollButton = new TextButton("Roll Stats", skin);
         rollButton.setColor(Color.RED);
-
         rollButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                rolledScores.clear();
-
                 switch (rollModes[currentRollModeIndex]) {
                     case "Pussy Mode":
+                        ArrayList<Integer> pussyRolls = new ArrayList<>();
                         for (int i = 0; i < ABILITIES.length; i++) {
-                            rolledScores.add(roll4d6DropLowest());
+                            pussyRolls.add(roll4d6DropLowest());
                         }
-                        Collections.sort(rolledScores, Collections.reverseOrder());
+                        Collections.sort(pussyRolls, Collections.reverseOrder());
                         for (int i = 0; i < ABILITIES.length; i++) {
-                            abilityFields[i].setText(rolledScores.get(i).toString());
+                            rolledBaseStats[i] = pussyRolls.get(i);
                         }
                         break;
+
                     case "Easy Mode":
                         for (int i = 0; i < ABILITIES.length; i++) {
-                            int val = roll4d6DropLowest();
-                            abilityFields[i].setText(Integer.toString(val));
+                            rolledBaseStats[i] = roll4d6DropLowest();
                         }
                         break;
+
                     case "Normal Mode":
+                        ArrayList<Integer> normalRolls = new ArrayList<>();
                         for (int i = 0; i < ABILITIES.length; i++) {
-                            rolledScores.add(roll3d6());
+                            normalRolls.add(roll3d6());
                         }
-                        Collections.sort(rolledScores, Collections.reverseOrder());
+                        Collections.sort(normalRolls, Collections.reverseOrder());
                         for (int i = 0; i < ABILITIES.length; i++) {
-                            abilityFields[i].setText(rolledScores.get(i).toString());
+                            rolledBaseStats[i] = normalRolls.get(i);
                         }
                         break;
+
                     case "Hardcore Mode":
                         for (int i = 0; i < ABILITIES.length; i++) {
-                            int val = roll3d6();
-                            abilityFields[i].setText(Integer.toString(val));
+                            rolledBaseStats[i] = roll3d6();
                         }
                         break;
                 }
-                statsrolled = true; // ✅ mark that stats are now rolled
-                System.out.println("Rolled stats updated.");
 
+                statsrolled = true;
+                recomputeTraitPenalties();
+                updateTraitCountLabels();
+                updateSelectedTraitsLabel();
+
+                if (firstSelectedIndex != null) {
+                    swapButtons[firstSelectedIndex].setColor(Color.WHITE);
+                    firstSelectedIndex = null;
+                }
             }
         });
 
+        // Create button
         TextButton createCharacterButton = new TextButton("Create Character", skin);
         createCharacterButton.setColor(Color.GREEN);
         createCharacterButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-
-                // ✅ Validate prerequisites
                 if (!statsrolled) {
                     Dialog warning = new Dialog("Cannot Create Character", skin);
                     warning.text("You must roll your stats first.");
@@ -760,98 +765,73 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                     warning.show(stage);
                     return;
                 }
-                if (selectedTraits.size() > MAX_TRAITS) {
-                    Dialog warning = new Dialog("Cannot Create Character", skin);
-                    warning.text("Too many traits selected. Resolve penalties first.");
-                    warning.button("OK");
-                    warning.show(stage);
-                    return;
-                }
 
                 PlayerCharacter pc = buildPlayerCharacter();
-
-                // Example: print to console
                 System.out.println("Character Created:\n" + pc);
 
-                // TODO: send 'pc' to game manager / main game state
-
-                game.setPlayerCharacter(pc);  // store in main game
+                game.setPlayerCharacter(pc);
                 game.startGame();
             }
         });
 
-// Add it to the right table
-
-
-
-
-
-// Add the fully constructed table to the stage
-      ///  table.setFillParent(true);
-      ///  stage.addActor(table);
-
-        Table root = new Table();
-        root.setFillParent(true);
-        root.top().pad(10);
-        stage.addActor(root);
-
-// LEFT: Portraits
-        Table left = new Table();
-        left.top().left();
-        left.add(portraitControlTable).row();
-        left.add(nameTable).padTop(10).row();
-        left.add(speciesTable).padTop(10).row();
-
-// MIDDLE: Class and Traits
-        Table middle = new Table();
-        middle.add(classSelectBox).row();
-        middle.add(scrollPane).width(250).height(150).row();
-        middle.add(selectedTraitsLabel).padTop(5).left();
-
-// RIGHT: Roll Mode, Stats, Roll Button
-        Table right = new Table();
-        right.add(rollModeTable).padBottom(10).row();
-        right.add(abilitiesTable).padBottom(10).row();
-        right.add(rollButton).padTop(10);
-        right.add(createCharacterButton).padTop(15).row();
-
-// Combine left, middle, right at the top
-        Table topRow = new Table();
-        topRow.add(left).top().left().padRight(30);
-        topRow.add(middle).width(350).top().left().padRight(30);
-        topRow.add(right).top().right();
-        root.add(topRow).expandX().fillX().row();  // <-- top row done
-
+        // Skills
         skillsTable = new Table();
         skillsTable.setName("skillsTable");
 
         ScrollPane skillsScroll = new ScrollPane(skillsTable, skin);
-        unspentSkillPointsLabel = new Label("Unspent Skill Points: " + unspentSkillPoints, whiteLabelStyle);
         skillsScroll.setFadeScrollBars(false);
         skillsScroll.setScrollingDisabled(false, false);
         skillsScroll.setScrollbarsOnTop(true);
 
-        // 4️⃣ Add the scroll pane to root
-        root.add(unspentSkillPointsLabel).expandX().left().padBottom(5).row();
+        unspentSkillPoints = classLevelProgression.getSkillPointsForClassAndLevel(selectedClass, 1);
+        unspentSkillPointsLabel = new Label("Unspent Skill Points: " + unspentSkillPoints, whiteLabelStyle);
 
-// Then add the scroll pane
-        root.add(skillsScroll)
-                .width(root.getWidth())
-                .height(200)
-                .expandX()
-                .fillX()
-                .row();
+        classSelectBox.addListener(new ChangeListener() {
+            @Override
+            public void changed(ChangeEvent event, Actor actor) {
+                selectedClass = classSelectBox.getSelected();
+                playerSkills = new Skills();
+                unspentSkillPoints = classLevelProgression.getSkillPointsForClassAndLevel(selectedClass, 1);
+                updateSkillUI(selectedClass);
+                updateUnspentSkillPointsLabel();
+            }
+        });
 
-// 5️⃣ Populate skills dynamically
+        // Layout
+        Table left = new Table();
+        left.top().left();
+        left.add(portraitControlTable).left().row();
+        left.add(nameTable).left().padTop(10).row();
+        left.add(speciesTable).left().padTop(10).row();
 
-        selectedClass = classSelectBox.getSelected(); // "Expert"
-        unspentSkillPoints = classLevelProgression.getSkillPointsForClassAndLevel(selectedClass, 1); // Level 1
-        playerSkills = new Skills(); // reset skills
-        updateSkillUI(selectedClass); // now UI builds with correct unspent SP
+        Table middle = new Table();
+        middle.top().left();
+        middle.add(new Label("Class:", whiteLabelStyle)).left().row();
+        middle.add(classSelectBox).width(220).left().padBottom(15).row();
+        middle.add(traitsLabel).left().padBottom(8).row();
+        middle.add(traitScrollPane).width(300).height(180).left().row();
+        middle.add(selectedTraitsLabel).width(300).left().padTop(10).row();
 
+        Table right = new Table();
+        right.top().right();
+        right.add(rollModeTable).right().padBottom(12).row();
+        right.add(abilitiesTable).right().padBottom(12).row();
+        right.add(rollButton).right().padBottom(10).row();
+        right.add(createCharacterButton).right().row();
 
+        Table topRow = new Table();
+        topRow.add(left).top().left().padRight(30);
+        topRow.add(middle).top().left().padRight(30);
+        topRow.add(right).top().right();
 
+        root.add(topRow).expandX().fillX().row();
+        root.add(unspentSkillPointsLabel).left().expandX().fillX().padTop(15).padBottom(5).row();
+        root.add(skillsScroll).expand().fillX().height(220).row();
 
+        updateTraitCountLabels();
+        updateSelectedTraitsLabel();
+        updateSkillUI(selectedClass);
+        updateUnspentSkillPointsLabel();
     }
 
     private void applyPenalty(int statIndex, int amount, Class<? extends RaceTrait> trait) {
