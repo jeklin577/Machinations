@@ -7,43 +7,58 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
-import static com.machinations.game.Dice.rollDice;
-
 public class PlayerCharacter {
-    // Basic information
+
+    // ---------- Static / shared ----------
+    private static Texture defaultPortrait;
+
+    private static Texture getDefaultPortrait() {
+        if (defaultPortrait == null) {
+            defaultPortrait = new Texture(Gdx.files.internal("Portraits/RebutPortrait.png"));
+        }
+        return defaultPortrait;
+    }
+
+    private static int halfRoundUp(int value) {
+        return (value + 1) / 2;
+    }
+
+    // ---------- Identity ----------
     private String name;
     private String species;
     private String classType;
+
+    // ---------- Progression ----------
     private int level;
     private int experiencePoints;
-    private int health;
-
-    private Texture portrait;
-
-    private int chaScore;
-    private int chaMod;
-    private int comScore;
-    private int comMod;
-    private int conScore;
-    private int conMod;
-    private int dexScore;
-    private int dexMod;
-    private int strScore;
-    private int strMod;
-    private int intScore;
-    private int intMod;
-    private int wisScore;
-    private int wisMod;
-    private int MaxHP;
-
-    private int unspentSkillPoints;
     private int attackBonus;
 
-    private boolean canFly;
-    private boolean canFitThroughSmallSpaces;
-    private int speed;
-    private int swimspeed;
+    // ---------- HP ----------
+    private int maxHp;
+    private int currentHp;
 
+    // ---------- Portrait ----------
+    private Texture portrait;
+
+    // ---------- Core stats ----------
+    private int strScore;
+    private int dexScore;
+    private int conScore;
+    private int intScore;
+    private int wisScore;
+    private int chaScore;
+    private int comScore;
+
+    // ---------- Modifiers ----------
+    private int strMod;
+    private int dexMod;
+    private int conMod;
+    private int intMod;
+    private int wisMod;
+    private int chaMod;
+    private int comMod;
+
+    // ---------- Derived saves ----------
     private int reflexSave;
     private int charmSave;
     private int toughnessSave;
@@ -52,28 +67,38 @@ public class PlayerCharacter {
     private int powerSave;
     private int looksSave;
 
+    // ---------- Derived combat ----------
     private int rangedDefence;
     private int closeDefence;
-
-    private String armorType;
-    private int armorDamageNegation;
-    private int armorDefensePenalty;
-
     private int rangedDamageBonus;
     private int closeDamageBonus;
 
-    private int currentHp;  // Variable to track current health
-    private Dice rangedDamageDice; // Variable for ranged damage dice
-    private Dice closeDamageDice;  // Variable for close damage dice
-    private Dice ArmourDie;
-    private RaceTrait raceTrait;
+    // ---------- Movement / traits ----------
+    private boolean canFly;
+    private boolean canFitThroughSmallSpaces;
+    private int speed;
+    private int swimspeed;
 
-    private Set<DamageType> resistances = new HashSet<>();
-    private Set<DamageType> vulnerabilities = new HashSet<>();
+    // ---------- Armour ----------
+    private String armorType;
+    private int armorDefensePenalty;
+    private Dice armourDie;
 
-    private ClassLevelProgression classLevelProgression;
+    // ---------- Damage / resistances ----------
+    private Dice rangedDamageDice;
+    private Dice closeDamageDice;
+    private final Set<DamageType> resistances = new HashSet<>();
+    private final Set<DamageType> vulnerabilities = new HashSet<>();
+
+    // ---------- Skills / class ----------
+    private int unspentSkillPoints;
     private Skills skills;
+    private final ClassLevelProgression classLevelProgression;
 
+    // ---------- Race traits ----------
+    private ArrayList<RaceTrait> raceTraits = new ArrayList<>();
+
+    // ---------- Base state for rebuild / preview ----------
     private int baseStrScore;
     private int baseDexScore;
     private int baseConScore;
@@ -82,62 +107,97 @@ public class PlayerCharacter {
     private int baseChaScore;
     private int baseComScore;
 
+    private int baseStrMod;
+    private int baseDexMod;
+    private int baseConMod;
+    private int baseIntMod;
+    private int baseWisMod;
+    private int baseChaMod;
+    private int baseComMod;
+
+    private int baseReflexSave;
+    private int baseCharmSave;
+    private int baseToughnessSave;
+    private int baseLogicSave;
+    private int baseWillSave;
+    private int basePowerSave;
+    private int baseLooksSave;
+
+    private int baseRangedDefence;
+    private int baseCloseDefence;
+    private int baseRangedDamageBonus;
+    private int baseCloseDamageBonus;
+
+    private int baseAttackBonus;
     private int baseUnspentSkillPoints;
     private Skills baseSkills;
-    private ArrayList<RaceTrait> raceTraits;
 
+    private int baseMaxHp;
+    private int baseCurrentHp;
 
-    public PlayerCharacter(String name, String species, String classType, ClassLevelProgression classLevelProgression,
-                           int chaScore, int comScore, int conScore, int dexScore, int strScore, int intScore, int wisScore) {
+    private boolean baseCanFly;
+    private boolean baseCanFitThroughSmallSpaces;
+    private int baseSpeed;
+    private int baseSwimspeed;
+
+    private Set<DamageType> baseResistances = new HashSet<>();
+    private Set<DamageType> baseVulnerabilities = new HashSet<>();
+
+    // -------------------------------------------------------------------------
+    // Constructor
+    // NOTE: constructor order is now:
+    // str, dex, con, int, wis, cha, com
+    // -------------------------------------------------------------------------
+    public PlayerCharacter(String name,
+                           String species,
+                           String classType,
+                           ClassLevelProgression classLevelProgression,
+                           int strScore,
+                           int dexScore,
+                           int conScore,
+                           int intScore,
+                           int wisScore,
+                           int chaScore,
+                           int comScore) {
+
         this.name = name;
         this.species = species;
         this.classType = classType;
+        this.classLevelProgression = classLevelProgression;
+
         this.level = 1;
         this.experiencePoints = 0;
-        this.health = getInitialHealth(classType);
-        this.classLevelProgression = classLevelProgression;
-        this.intScore = intScore;
-        this.intMod = getModifier(intScore);
-        this.conScore = conScore;
-        this.conMod = getModifier(conScore);
-        this.wisScore = wisScore;
-        this.wisMod = getModifier(wisScore);
-        this.strScore = strScore;
-        this.strMod = getModifier(strScore);
-        this.dexScore = dexScore;
-        this.dexMod = getModifier(dexScore);
-        this.comScore = comScore;
-        this.comMod = getModifier(comScore);
-        this.chaScore = chaScore;
-        this.chaMod = getModifier(chaScore);
         this.attackBonus = 0;
-        this.canFly = false;
-        this.reflexSave = dexScore / 2;
-        this.charmSave = chaScore / 2;
-        this.toughnessSave = conScore / 2;
-        this.logicSave = intScore / 2;
-        this.willSave = wisScore / 2;
-        this.powerSave = strScore / 2;
-        this.looksSave = comScore / 2;
-        this.rangedDefence = 12 + this.dexMod;
-        this.closeDefence = 12 + this.conMod;
-        this.rangedDamageBonus = this.attackBonus + this.dexMod;
-        this.closeDamageBonus = this.attackBonus + this.strMod;
-        this.attackBonus = 0;
-        this.swimspeed = this.speed/2;
-
-
-        this.currentHp = this.health;  // Initialize currentHp to be equal to health
-        this.MaxHP = currentHp; //Sets initial max HP to the health, in line with motsp, so if you start with a d4 health die, you get 4 hp.
-
-
 
         this.skills = new Skills();
         initializeSkills();
-        Texture DefaultPortrait = new Texture(Gdx.files.internal("Portraits/RebutPortrait.png"));
-        this.portrait = DefaultPortrait;
+
+        this.canFly = false;
+        this.canFitThroughSmallSpaces = false;
+        this.speed = 10;
+        this.swimspeed = this.speed / 2;
+
+        this.portrait = getDefaultPortrait();
+
+        this.strScore = strScore;
+        this.dexScore = dexScore;
+        this.conScore = conScore;
+        this.intScore = intScore;
+        this.wisScore = wisScore;
+        this.chaScore = chaScore;
+        this.comScore = comScore;
+
+        recalculateCoreDerivedStats();
+
+        this.maxHp = rollStartingHp();
+        this.currentHp = this.maxHp;
+
+        captureBaseState();
     }
 
+    // -------------------------------------------------------------------------
+    // Initialisation helpers
+    // -------------------------------------------------------------------------
     private void initializeSkills() {
         switch (classType) {
             case "Psion":
@@ -156,50 +216,7 @@ public class PlayerCharacter {
         }
     }
 
-    public void resetToBaseState() {
-        this.strScore = baseStrScore;
-        this.dexScore = baseDexScore;
-        this.conScore = baseConScore;
-        this.intScore = baseIntScore;
-        this.wisScore = baseWisScore;
-        this.chaScore = baseChaScore;
-        this.comScore = baseComScore;
-
-        this.strMod = getModifier(strScore);
-        this.dexMod = getModifier(dexScore);
-        this.conMod = getModifier(conScore);
-        this.intMod = getModifier(intScore);
-        this.wisMod = getModifier(wisScore);
-        this.chaMod = getModifier(chaScore);
-        this.comMod = getModifier(comScore);
-
-        this.reflexSave = dexScore / 2;
-        this.charmSave = chaScore / 2;
-        this.toughnessSave = conScore / 2;
-        this.logicSave = intScore / 2;
-        this.willSave = wisScore / 2;
-        this.powerSave = strScore / 2;
-        this.looksSave = comScore / 2;
-
-        this.rangedDefence = 12 + dexMod;
-        this.closeDefence = 12 + conMod;
-        this.rangedDamageBonus = attackBonus + dexMod;
-        this.closeDamageBonus = attackBonus + strMod;
-
-        this.unspentSkillPoints = baseUnspentSkillPoints;
-        this.skills = baseSkills.copy(); // make a real copy method
-
-        this.resistances.clear();
-        this.vulnerabilities.clear();
-
-        this.canFly = false;
-        this.canFitThroughSmallSpaces = false;
-        this.speed = 10;
-        this.swimspeed = this.speed / 2;
-    }
-
     private void initializeGeneralSkills() {
-        // General Skills
         skills.setSkillValue(Skills.Skill.CLIMB, 0);
         skills.setSkillValue(Skills.Skill.LANGUAGES, 0);
         skills.setSkillValue(Skills.Skill.SEARCH, 0);
@@ -215,7 +232,6 @@ public class PlayerCharacter {
 
     private void initializePsionSkills() {
         initializeGeneralSkills();
-        // Psion Skills
         skills.setSkillValue(Skills.Skill.DISTANT_MIND, 0);
         skills.setSkillValue(Skills.Skill.INTUITION, 0);
         skills.setSkillValue(Skills.Skill.MENTAL_ARMOUR, 0);
@@ -227,7 +243,6 @@ public class PlayerCharacter {
 
     private void initializeKillerExpertSkills() {
         initializeGeneralSkills();
-        // Killer/Expert Skills
         skills.setSkillValue(Skills.Skill.AMBUSH, 0);
         skills.setSkillValue(Skills.Skill.ARMOUR_EATER, 0);
         skills.setSkillValue(Skills.Skill.BLEEDING_CUT, 0);
@@ -259,7 +274,6 @@ public class PlayerCharacter {
 
     private void initializeScholarSkills() {
         initializeGeneralSkills();
-        // Scholar Skills
         skills.setSkillValue(Skills.Skill.EXOTECH, 0);
         skills.setSkillValue(Skills.Skill.EXPERIMENTAL_TECH, 0);
         skills.setSkillValue(Skills.Skill.HACKER, 0);
@@ -273,149 +287,239 @@ public class PlayerCharacter {
         skills.setSkillValue(Skills.Skill.XENOPSYCH, 0);
     }
 
-    public void setRaceTraits(ArrayList<RaceTrait> traits) {
-        this.raceTraits = traits;
+    // -------------------------------------------------------------------------
+    // Core derived stat calculation
+    // -------------------------------------------------------------------------
+    private void recalculateCoreDerivedStats() {
+        this.strMod = getModifier(strScore);
+        this.dexMod = getModifier(dexScore);
+        this.conMod = getModifier(conScore);
+        this.intMod = getModifier(intScore);
+        this.wisMod = getModifier(wisScore);
+        this.chaMod = getModifier(chaScore);
+        this.comMod = getModifier(comScore);
+
+        this.reflexSave = halfRoundUp(dexScore);
+        this.charmSave = halfRoundUp(chaScore);
+        this.toughnessSave = halfRoundUp(conScore);
+        this.logicSave = halfRoundUp(intScore);
+        this.willSave = halfRoundUp(wisScore);
+        this.powerSave = halfRoundUp(strScore);
+        this.looksSave = halfRoundUp(comScore);
+
+        this.rangedDefence = 12 + dexMod;
+        this.closeDefence = 12 + conMod;
+
+        // MOTSP: ranged damage uses Wisdom bonus, close damage uses Strength bonus
+        this.rangedDamageBonus = wisMod;
+        this.closeDamageBonus = strMod;
     }
 
-    // Method to gain experience points and check for level up
-    public void addExperience(int amount) {
-        experiencePoints += amount;
-        LevelProgression progression = classLevelProgression.getProgressionForClassAndLevel(classType, level);
-        if (experiencePoints >= progression.getExperienceForNextLevel()) {
-            experiencePoints -= progression.getExperienceForNextLevel();
-            levelUp();
-        }
+    private int getModifier(int stat) {
+        return (stat - 10) / 2;
     }
 
-    // Method to check if the player should level up
-
-
-    // Method to handle leveling up
-    private void levelUp() {
-        level++;
-        calculateHealthIncrease();
-    }
-
-    private void calculateHealthIncrease() {
-        LevelProgression progression = classLevelProgression.getProgressionForClassAndLevel(classType, level);
-        int healthIncrease = rollDice(progression.getHealthDiceRolls(), progression.getHealthDiceSize()) + conMod;
-        health += healthIncrease;
-    }
-
-
-    // Method to get the initial health based on the class
-    private int getInitialHealth(String classType) {
+    // -------------------------------------------------------------------------
+    // HP rules
+    // -------------------------------------------------------------------------
+    private int getClassHitDieSides() {
         switch (classType) {
-            case "Expert":
+            case "Killer":
                 return 8;
-            case "Killer":
-                 return 6;
+            case "Expert":
             case "Scholar":
-                 return 6;
             case "Psion":
-                return 4;
             default:
-                return new Dice(6).roll(); ///This was what
+                return 6;
         }
     }
 
-    // Method to get the base health increase based on the class
-    private int getBaseHealthIncrease(String classType) {
+    private int getFixedHpGainAfterThreshold() {
         switch (classType) {
-            case "Expert":
-                return 5;
             case "Killer":
-                return 4;
-            case "Scholar":
                 return 3;
+            case "Expert":
+                return 2;
             case "Psion":
                 return 2;
-            default:
-                return 3;
-        }
-    }
-
-    // Method to get the number of sides of the health dice based on the class
-    private int getHealthDiceSides(String classType) {
-        switch (classType) {
-            case "Expert":
-                return 8;
-            case "Killer":
-                return 6;
             case "Scholar":
-                return 6;
-            case "Psion":
-                return 4;
             default:
-                return 6;
+                return 1;
         }
     }
 
-    int getModifier(int stat) {
-            return (stat - 10) / 2;
+    private int getLevelWhereConStopsApplying() {
+        switch (classType) {
+            case "Killer":
+            case "Psion":
+                return 10;
+            case "Expert":
+            case "Scholar":
+            default:
+                return 11;
+        }
     }
 
-
-    // Getter and setter methods for all scores and modifiers
-    public int getChaScore() {
-        return chaScore;
+    private int rollStartingHp() {
+        int hp = new Dice(getClassHitDieSides()).roll() + conMod;
+        return Math.max(1, hp);
     }
 
-    public String getName() {
-        return this.name;
+    private int getHpGainForNewLevel(int newLevel) {
+        int gain;
+
+        if (newLevel >= getLevelWhereConStopsApplying()) {
+            gain = getFixedHpGainAfterThreshold();
+        } else {
+            gain = new Dice(getClassHitDieSides()).roll() + conMod;
+        }
+
+        return Math.max(1, gain);
     }
 
-    public void setChaScore(int chaScore) {
-        this.chaScore = chaScore;
-        this.chaMod = getModifier(chaScore);
+    private void levelUp() {
+        level++;
+        int hpGain = getHpGainForNewLevel(level);
+        maxHp += hpGain;
+        currentHp += hpGain;
+        if (currentHp > maxHp) {
+            currentHp = maxHp;
+        }
     }
 
-    public int getChaMod() {
-        return chaMod;
+    // -------------------------------------------------------------------------
+    // Trait rebuild / preview support
+    // -------------------------------------------------------------------------
+    public void captureBaseState() {
+        this.baseStrScore = this.strScore;
+        this.baseDexScore = this.dexScore;
+        this.baseConScore = this.conScore;
+        this.baseIntScore = this.intScore;
+        this.baseWisScore = this.wisScore;
+        this.baseChaScore = this.chaScore;
+        this.baseComScore = this.comScore;
+
+        this.baseStrMod = this.strMod;
+        this.baseDexMod = this.dexMod;
+        this.baseConMod = this.conMod;
+        this.baseIntMod = this.intMod;
+        this.baseWisMod = this.wisMod;
+        this.baseChaMod = this.chaMod;
+        this.baseComMod = this.comMod;
+
+        this.baseReflexSave = this.reflexSave;
+        this.baseCharmSave = this.charmSave;
+        this.baseToughnessSave = this.toughnessSave;
+        this.baseLogicSave = this.logicSave;
+        this.baseWillSave = this.willSave;
+        this.basePowerSave = this.powerSave;
+        this.baseLooksSave = this.looksSave;
+
+        this.baseRangedDefence = this.rangedDefence;
+        this.baseCloseDefence = this.closeDefence;
+        this.baseRangedDamageBonus = this.rangedDamageBonus;
+        this.baseCloseDamageBonus = this.closeDamageBonus;
+
+        this.baseAttackBonus = this.attackBonus;
+        this.baseUnspentSkillPoints = this.unspentSkillPoints;
+        this.baseSkills = this.skills.copy();
+
+        this.baseMaxHp = this.maxHp;
+        this.baseCurrentHp = this.currentHp;
+
+        this.baseCanFly = this.canFly;
+        this.baseCanFitThroughSmallSpaces = this.canFitThroughSmallSpaces;
+        this.baseSpeed = this.speed;
+        this.baseSwimspeed = this.swimspeed;
+
+        this.baseResistances = new HashSet<>(this.resistances);
+        this.baseVulnerabilities = new HashSet<>(this.vulnerabilities);
     }
 
-    public void setChaMod(int chaMod) {
-        this.chaMod = chaMod;
+    public void resetToBaseState() {
+        this.strScore = baseStrScore;
+        this.dexScore = baseDexScore;
+        this.conScore = baseConScore;
+        this.intScore = baseIntScore;
+        this.wisScore = baseWisScore;
+        this.chaScore = baseChaScore;
+        this.comScore = baseComScore;
+
+        this.strMod = baseStrMod;
+        this.dexMod = baseDexMod;
+        this.conMod = baseConMod;
+        this.intMod = baseIntMod;
+        this.wisMod = baseWisMod;
+        this.chaMod = baseChaMod;
+        this.comMod = baseComMod;
+
+        this.reflexSave = baseReflexSave;
+        this.charmSave = baseCharmSave;
+        this.toughnessSave = baseToughnessSave;
+        this.logicSave = baseLogicSave;
+        this.willSave = baseWillSave;
+        this.powerSave = basePowerSave;
+        this.looksSave = baseLooksSave;
+
+        this.rangedDefence = baseRangedDefence;
+        this.closeDefence = baseCloseDefence;
+        this.rangedDamageBonus = baseRangedDamageBonus;
+        this.closeDamageBonus = baseCloseDamageBonus;
+
+        this.attackBonus = baseAttackBonus;
+        this.unspentSkillPoints = baseUnspentSkillPoints;
+        this.skills = baseSkills.copy();
+
+        this.maxHp = baseMaxHp;
+        this.currentHp = Math.min(baseCurrentHp, baseMaxHp);
+
+        this.canFly = baseCanFly;
+        this.canFitThroughSmallSpaces = baseCanFitThroughSmallSpaces;
+        this.speed = baseSpeed;
+        this.swimspeed = baseSwimspeed;
+
+        this.resistances.clear();
+        this.resistances.addAll(baseResistances);
+
+        this.vulnerabilities.clear();
+        this.vulnerabilities.addAll(baseVulnerabilities);
     }
 
-    public int getComScore() {
-        return comScore;
+    public void setRaceTraits(ArrayList<RaceTrait> traits) {
+        this.raceTraits = (traits == null) ? new ArrayList<>() : new ArrayList<>(traits);
     }
 
-    public void setComScore(int comScore) {
-        this.comScore = comScore;
-        this.comMod = getModifier(comScore);
+    public ArrayList<RaceTrait> getRaceTraits() {
+        return new ArrayList<>(raceTraits);
     }
 
-    public int getMaxHP() { return MaxHP;}
-    public void setMaxHP(int NewMaxHP) {this.MaxHP = NewMaxHP;}
-    public int getCurrentHp() {
-        return currentHp;
+    public void recalculateFromTraits() {
+        resetToBaseState();
+
+        if (raceTraits == null) return;
+
+        for (RaceTrait trait : raceTraits) {
+            trait.applyEffect(this);
+        }
     }
 
-    public void setCurrentHp(int currentHp) {
-        this.currentHp = Math.min(currentHp, this.health);
+    // -------------------------------------------------------------------------
+    // XP
+    // -------------------------------------------------------------------------
+    public void addExperience(int amount) {
+        experiencePoints += amount;
+
+        LevelProgression progression = classLevelProgression.getProgressionForClassAndLevel(classType, level);
+        while (progression != null && experiencePoints >= progression.getExperienceForNextLevel()) {
+            experiencePoints -= progression.getExperienceForNextLevel();
+            levelUp();
+            progression = classLevelProgression.getProgressionForClassAndLevel(classType, level);
+        }
     }
 
-    // Getter and setter for rangedDamageDice
-    public Dice getRangedDamageDice() {
-        return rangedDamageDice;
-    }
-
-    public void setRangedDamageDice(Dice rangedDamageDice) {
-        this.rangedDamageDice = rangedDamageDice;
-    }
-
-    // Getter and setter for closeDamageDice
-    public Dice getCloseDamageDice() {
-        return closeDamageDice;
-    }
-
-    public void setCloseDamageDice(Dice closeDamageDice) {
-        this.closeDamageDice = closeDamageDice;
-    }
-
-    // Methods to calculate damage
+    // -------------------------------------------------------------------------
+    // Combat / damage
+    // -------------------------------------------------------------------------
     public int calculateRangedDamage() {
         return rangedDamageBonus + (rangedDamageDice != null ? rangedDamageDice.roll() : 0);
     }
@@ -424,50 +528,110 @@ public class PlayerCharacter {
         return closeDamageBonus + (closeDamageDice != null ? closeDamageDice.roll() : 0);
     }
 
-    public int getSwimspeed() { return swimspeed;}
+    public void receiveDamage(int damage, DamageType damageType) {
+        if (armourDie != null) {
+            int negation = armourDie.roll();
+            damage = Math.max(damage - negation, 0);
+        }
 
-    public void setSwimspeed(int newswimspeed) {this.swimspeed = newswimspeed;}
+        if (resistances.contains(damageType)) {
+            damage /= 2;
+        } else if (vulnerabilities.contains(damageType)) {
+            damage *= 2;
+        }
 
-    public int getComMod() {
-        return comMod;
+        currentHp -= damage;
+        if (currentHp < 0) {
+            currentHp = 0;
+        }
     }
 
-    public void setComMod(int comMod) {
-        this.comMod = comMod;
+    public void heal(int amount) {
+        currentHp = Math.min(maxHp, currentHp + Math.max(0, amount));
     }
 
-    public int getConScore() {
-        return conScore;
+    // -------------------------------------------------------------------------
+    // Armour
+    // -------------------------------------------------------------------------
+    public void setArmorType(String armorType) {
+        this.armorType = armorType;
+
+        switch (armorType) {
+            case "Ultralight":
+                this.armourDie = new Dice(1);
+                this.armorDefensePenalty = 0;
+                break;
+            case "Very Light":
+                this.armourDie = new Dice(2);
+                this.armorDefensePenalty = 0;
+                break;
+            case "Light":
+                this.armourDie = new Dice(3);
+                this.armorDefensePenalty = 0;
+                break;
+            case "Medium":
+                this.armourDie = new Dice(4);
+                this.armorDefensePenalty = 0;
+                break;
+            case "Heavy":
+                this.armourDie = new Dice(6);
+                this.armorDefensePenalty = 1;
+                break;
+            case "Very Heavy":
+                this.armourDie = new Dice(8);
+                this.armorDefensePenalty = 1;
+                break;
+            case "Ultra Heavy":
+                this.armourDie = new Dice(10);
+                this.armorDefensePenalty = 2;
+                break;
+            case "Juggernaut":
+                this.armourDie = new Dice(12);
+                this.armorDefensePenalty = 3;
+                break;
+            default:
+                this.armourDie = null;
+                this.armorDefensePenalty = 0;
+                break;
+        }
     }
 
-    public void setConScore(int conScore) {
-        this.conScore = conScore;
-        this.conMod = getModifier(conScore);
+    // -------------------------------------------------------------------------
+    // Dialogue convenience
+    // -------------------------------------------------------------------------
+    public Dialogue speak(String text) {
+        return new Dialogue("PC", text, portrait);
     }
 
-    public int getConMod() {
-        return conMod;
+    // -------------------------------------------------------------------------
+    // Getters / setters
+    // -------------------------------------------------------------------------
+    public String getName() {
+        return name;
     }
 
-    public void setConMod(int conMod) {
-        this.conMod = conMod;
+    public String getSpecies() {
+        return species;
     }
 
-    public int getDexScore() {
-        return dexScore;
+    public String getClassType() {
+        return classType;
     }
 
-    public void setDexScore(int dexScore) {
-        this.dexScore = dexScore;
-        this.dexMod = getModifier(dexScore);
+    public int getLevel() {
+        return level;
     }
 
-    public int getDexMod() {
-        return dexMod;
+    public int getExperiencePoints() {
+        return experiencePoints;
     }
 
-    public void setDexMod(int dexMod) {
-        this.dexMod = dexMod;
+    public Texture getPortrait() {
+        return portrait;
+    }
+
+    public void setPortrait(Texture portrait) {
+        this.portrait = portrait;
     }
 
     public int getStrScore() {
@@ -477,14 +641,30 @@ public class PlayerCharacter {
     public void setStrScore(int strScore) {
         this.strScore = strScore;
         this.strMod = getModifier(strScore);
+        this.powerSave = halfRoundUp(strScore);
+        this.closeDamageBonus = this.strMod;
     }
 
-    public int getStrMod() {
-        return strMod;
+    public int getDexScore() {
+        return dexScore;
     }
 
-    public void setStrMod(int strMod) {
-        this.strMod = strMod;
+    public void setDexScore(int dexScore) {
+        this.dexScore = dexScore;
+        this.dexMod = getModifier(dexScore);
+        this.reflexSave = halfRoundUp(dexScore);
+        this.rangedDefence = 12 + this.dexMod;
+    }
+
+    public int getConScore() {
+        return conScore;
+    }
+
+    public void setConScore(int conScore) {
+        this.conScore = conScore;
+        this.conMod = getModifier(conScore);
+        this.toughnessSave = halfRoundUp(conScore);
+        this.closeDefence = 12 + this.conMod;
     }
 
     public int getIntScore() {
@@ -494,14 +674,7 @@ public class PlayerCharacter {
     public void setIntScore(int intScore) {
         this.intScore = intScore;
         this.intMod = getModifier(intScore);
-    }
-
-    public int getIntMod() {
-        return intMod;
-    }
-
-    public void setIntMod(int intMod) {
-        this.intMod = intMod;
+        this.logicSave = halfRoundUp(intScore);
     }
 
     public int getWisScore() {
@@ -511,103 +684,56 @@ public class PlayerCharacter {
     public void setWisScore(int wisScore) {
         this.wisScore = wisScore;
         this.wisMod = getModifier(wisScore);
+        this.willSave = halfRoundUp(wisScore);
+        this.rangedDamageBonus = this.wisMod;
+    }
+
+    public int getChaScore() {
+        return chaScore;
+    }
+
+    public void setChaScore(int chaScore) {
+        this.chaScore = chaScore;
+        this.chaMod = getModifier(chaScore);
+        this.charmSave = halfRoundUp(chaScore);
+    }
+
+    public int getComScore() {
+        return comScore;
+    }
+
+    public void setComScore(int comScore) {
+        this.comScore = comScore;
+        this.comMod = getModifier(comScore);
+        this.looksSave = halfRoundUp(comScore);
+    }
+
+    public int getStrMod() {
+        return strMod;
+    }
+
+    public int getDexMod() {
+        return dexMod;
+    }
+
+    public int getConMod() {
+        return conMod;
+    }
+
+    public int getIntMod() {
+        return intMod;
     }
 
     public int getWisMod() {
         return wisMod;
     }
 
-    public void setWisMod(int wisMod) {
-        this.wisMod = wisMod;
+    public int getChaMod() {
+        return chaMod;
     }
 
-    public int getUnspentSkillPoints() {
-        return unspentSkillPoints;
-    }
-
-    public void setUnspentSkillPoints(int unspentSkillPoints) {
-        this.unspentSkillPoints = unspentSkillPoints;
-    }
-
-
-    public void allocateSkillPoint(Skills.Skill skill) {
-        if (unspentSkillPoints > 0) {
-            skills.incrementSkill(skill);
-            unspentSkillPoints--;
-        }
-    }
-    public int getAttackBonus() {
-        return attackBonus;
-    }
-
-    public void setAttackBonus(int attackBonus) {
-        this.attackBonus = attackBonus;
-        // Recalculate damage bonuses if attackBonus changes
-        this.rangedDamageBonus = this.attackBonus + this.dexMod;
-        this.closeDamageBonus = this.attackBonus + this.strMod;
-    }
-
-
-    //Stuff about grabbing a players portrait
-    public PlayerCharacter(Texture portrait) {
-        this.portrait = portrait;
-    }
-        /// So this can get invoked for any player character class (duh, it's a method),
-        /// so Guy2.Getportrait can be used in a ah who gives a shit
-    public Texture getPortrait() {
-        return portrait;
-    }
-
-    public void setPortrait(Texture portrait) {
-        this.portrait = portrait;
-    }
-
-    //So this makes it easier to manage speaking, you can supply a dialogue like this:
-    /// dialogueSystem.addDialogue(player.speak("I am the man"));
-    /// So this'll take the player and have them speak the line given
-
-    public Dialogue speak(String text) {
-        return new Dialogue("PC", text, portrait);
-    }
-
-    public boolean isCanFly() {
-        return canFly;
-    }
-
-    public void setCanFly(boolean canFly) {
-        this.canFly = canFly;
-    }
-
-    public int getSpeed() {
-        return speed;
-    }
-
-    public void setSpeed(int speed) {
-        this.speed = speed;
-    }
-
-    public void addResistance(DamageType damageType) {
-        this.resistances.add(damageType);
-    }
-
-    public void addVulnerability(DamageType damageType) {
-        this.vulnerabilities.add(damageType);
-    }
-
-    public void setHealth(int Health) {
-        this.health = Health;
-    }
-
-    public int getHealth() {
-        return this.health;
-    }
-
-    public Skills getSkills() {
-        return skills;
-    }
-
-    public void setSkills(Skills skills) {
-        this.skills = skills;
+    public int getComMod() {
+        return comMod;
     }
 
     public int getReflexSave() {
@@ -666,6 +792,22 @@ public class PlayerCharacter {
         this.looksSave = looksSave;
     }
 
+    public int getRangedDefence() {
+        return rangedDefence;
+    }
+
+    public void setRangedDefence(int rangedDefence) {
+        this.rangedDefence = rangedDefence;
+    }
+
+    public int getCloseDefence() {
+        return closeDefence;
+    }
+
+    public void setCloseDefence(int closeDefence) {
+        this.closeDefence = closeDefence;
+    }
+
     public int getRangedDamageBonus() {
         return rangedDamageBonus;
     }
@@ -674,7 +816,6 @@ public class PlayerCharacter {
         this.rangedDamageBonus = rangedDamageBonus;
     }
 
-    // Getter and setter for closeDamageBonus
     public int getCloseDamageBonus() {
         return closeDamageBonus;
     }
@@ -683,108 +824,88 @@ public class PlayerCharacter {
         this.closeDamageBonus = closeDamageBonus;
     }
 
-    public String getArmorType() {
-        return armorType;
+    public int getAttackBonus() {
+        return attackBonus;
     }
 
-    public void setArmorType(String armorType) {
-        this.armorType = armorType;
-        setArmorProperties(armorType);
+    public void setAttackBonus(int attackBonus) {
+        this.attackBonus = attackBonus;
     }
 
-    // Getter for armorDamageNegation
-    public int getArmorDamageNegation() {
-        return armorDamageNegation;
+    public int getUnspentSkillPoints() {
+        return unspentSkillPoints;
     }
 
-    // Getter for armorDefensePenalty
-    public int getArmorDefensePenalty() {
-        return armorDefensePenalty;
+    public void setUnspentSkillPoints(int unspentSkillPoints) {
+        this.unspentSkillPoints = unspentSkillPoints;
     }
 
-    // Method to set armor properties based on armor type
-    private void setArmorProperties(String armorType) {
-        switch (armorType) {
-            case "Ultralight":
-                this.ArmourDie = new Dice(1);   // always rolls 1
-                this.armorDefensePenalty = 0;
-                break;
-            case "Very Light":
-                this.ArmourDie = new Dice(2);
-                this.armorDefensePenalty = 0;
-                break;
-            case "Light":
-                this.ArmourDie = new Dice(3);
-                this.armorDefensePenalty = 0;
-                break;
-            case "Medium":
-                this.ArmourDie = new Dice(4);
-                this.armorDefensePenalty = 0;
-                break;
-            case "Heavy":
-                this.ArmourDie = new Dice(6);
-                this.armorDefensePenalty = 1;
-                break;
-            case "Very Heavy":
-                this.ArmourDie = new Dice(8);
-                this.armorDefensePenalty = 1;
-                break;
-            case "Ultra Heavy":
-                this.ArmourDie = new Dice(10);
-                this.armorDefensePenalty = 2;
-                break;
-            case "Juggernaut":
-                this.ArmourDie = new Dice(12);
-                this.armorDefensePenalty = 3;
-                break;
-            default:
-                this.ArmourDie = null;
-                this.armorDefensePenalty = 0;
-                break;
+    public void allocateSkillPoint(Skills.Skill skill) {
+        if (unspentSkillPoints > 0) {
+            skills.incrementSkill(skill);
+            unspentSkillPoints--;
         }
     }
 
-
-
-    private int rollDamageDie(int sides) {
-        Dice dice = new Dice(sides);
-        return dice.roll();
+    public Skills getSkills() {
+        return skills;
     }
 
-    // Method to calculate damage after applying armor and defense penalties
-    public int calculateDamage(int baseDamage) {
-        int damageAfterArmor = Math.max(baseDamage - armorDamageNegation, 0);
-        return damageAfterArmor;
+    public void setSkills(Skills skills) {
+        this.skills = skills.copy();
     }
 
-    // Method to apply defense penalties
-    public void applyDefensePenalties() {
-        this.rangedDefence = Math.max(this.rangedDefence - armorDefensePenalty, 0);
-        this.closeDefence = Math.max(this.closeDefence - armorDefensePenalty, 0);
+    public int getMaxHP() {
+        return maxHp;
     }
 
-
-    // Getter and setter for attackBonus
-
-    public void receiveDamage(int damage, DamageType damageType) {
-
-        // Armour: roll per hit
-        if (ArmourDie != null) {
-            int negation = ArmourDie.roll();
-            damage = Math.max(damage - negation, 0);
+    public void setMaxHP(int maxHp) {
+        this.maxHp = Math.max(1, maxHp);
+        if (currentHp > this.maxHp) {
+            currentHp = this.maxHp;
         }
-
-        // Resistances / vulnerabilities
-        if (resistances.contains(damageType)) {
-            damage /= 2;
-        } else if (vulnerabilities.contains(damageType)) {
-            damage *= 2;
-        }
-
-        this.health -= damage;
-        if (this.health < 0) this.health = 0;
     }
 
+    public int getCurrentHp() {
+        return currentHp;
+    }
+
+    public void setCurrentHp(int currentHp) {
+        this.currentHp = Math.max(0, Math.min(currentHp, maxHp));
+    }
+
+    // Compatibility wrappers
+    public int getHealth() {
+        return currentHp;
+    }
+
+    public void setHealth(int health) {
+        setCurrentHp(health);
+    }
+
+    public Dice getRangedDamageDice() {
+        return rangedDamageDice;
+    }
+
+    public void setRangedDamageDice(Dice rangedDamageDice) {
+        this.rangedDamageDice = rangedDamageDice;
+    }
+
+    public Dice getCloseDamageDice() {
+        return closeDamageDice;
+    }
+
+    public void setCloseDamageDice(Dice closeDamageDice) {
+        this.closeDamageDice = closeDamageDice;
+    }
+
+    public boolean isCanFly() {
+        return canFly;
+    }
+
+    public void setCanFly(boolean canFly) {
+        this.canFly = canFly;
+    }
 
     public boolean isCanFitThroughSmallSpaces() {
         return canFitThroughSmallSpaces;
@@ -794,14 +915,47 @@ public class PlayerCharacter {
         this.canFitThroughSmallSpaces = canFitThroughSmallSpaces;
     }
 
-    public int getLevel() {
-        return level;
+    public int getSpeed() {
+        return speed;
     }
 
-    // Getter for experience points
-    public int getExperiencePoints() {
-        return experiencePoints;
+    public void setSpeed(int speed) {
+        this.speed = speed;
+    }
+
+    public int getSwimspeed() {
+        return swimspeed;
+    }
+
+    public void setSwimspeed(int swimspeed) {
+        this.swimspeed = swimspeed;
+    }
+
+    public String getArmorType() {
+        return armorType;
+    }
+
+    public int getArmorDefensePenalty() {
+        return armorDefensePenalty;
+    }
+
+    public Dice getArmourDie() {
+        return armourDie;
+    }
+
+    public void addResistance(DamageType damageType) {
+        resistances.add(damageType);
+    }
+
+    public void addVulnerability(DamageType damageType) {
+        vulnerabilities.add(damageType);
+    }
+
+    public Set<DamageType> getResistances() {
+        return new HashSet<>(resistances);
+    }
+
+    public Set<DamageType> getVulnerabilities() {
+        return new HashSet<>(vulnerabilities);
     }
 }
-
-

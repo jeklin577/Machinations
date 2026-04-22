@@ -5,15 +5,22 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.ui.*;
+import com.badlogic.gdx.scenes.scene2d.ui.Dialog;
+import com.badlogic.gdx.scenes.scene2d.ui.Image;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.ScrollPane;
+import com.badlogic.gdx.scenes.scene2d.ui.SelectBox;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.ui.TextField;
+import com.badlogic.gdx.scenes.scene2d.ui.Window;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Scaling;
@@ -23,45 +30,67 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
 
     private Stage stage;
     private Skin skin;
+    private Machinations game;
 
     private Texture[] portraits;
     private int currentPortraitIndex = 0;
     private Image portraitDisplay;
 
-    private final String[] ABILITIES = {"Strength", "Dexterity", "Constitution", "Intelligence", "Wisdom", "Charisma", "Comeliness"};
-    private Label[] abilityLabels = new Label[ABILITIES.length];
-    private TextField[] abilityFields = new TextField[ABILITIES.length];
+    private static final String[] ABILITIES = {
+            "Strength", "Dexterity", "Constitution",
+            "Intelligence", "Wisdom", "Charisma", "Comeliness"
+    };
+
+    private final Label[] abilityLabels = new Label[ABILITIES.length];
+    private final TextField[] abilityFields = new TextField[ABILITIES.length];
+    private final TextButton[] swapButtons = new TextButton[ABILITIES.length];
 
     private Label rollModeValueLabel;
-    private String[] rollModes = {"Pussy Mode", "Easy Mode", "Normal Mode", "Hardcore Mode"};
+    private final String[] rollModes = {"Pussy Mode", "Easy Mode", "Normal Mode", "Hardcore Mode"};
     private int currentRollModeIndex = 0;
+
     private boolean uiSetupComplete = false;
+    private boolean statsRolled = false;
     private Integer firstSelectedIndex = null;
-    private final TextButton[] swapButtons = new TextButton[7];
-    private boolean statsrolled = false;
+
     private Label selectedTraitsLabel;
-    private ArrayList<Class<? extends RaceTrait>> selectedTraits = new ArrayList<>();
-    private final int MAX_TRAITS = 3;
-    private SelectBox<String> classSelectBox;
-    private ClassLevelProgression classLevelProgression;
-    private Label.LabelStyle whiteLabelStyle;
     private Label unspentSkillPointsLabel;
+    private Label hpPreviewLabel;
+
     private TextField nameField;
     private TextField speciesField;
 
+    private SelectBox<String> classSelectBox;
+    private String selectedClass = "Expert";
+
+    private ClassLevelProgression classLevelProgression;
+    private Label.LabelStyle whiteLabelStyle;
+
+    private final ArrayList<Class<? extends RaceTrait>> selectedTraits = new ArrayList<>();
+    private static final int MAX_TRAITS = 3;
+
     private final Map<Class<? extends RaceTrait>, Label> traitCountLabels = new HashMap<>();
     private final ArrayList<Integer> extraTraitPenaltyAssignments = new ArrayList<>();
-    private int[] rolledBaseStats = new int[ABILITIES.length];
+    private final Map<Integer, Integer> statPenalties = new HashMap<>();
+    private final int[] rolledBaseStats = new int[ABILITIES.length];
 
-    private Machinations game; // store reference
+    private Skills playerSkills = new Skills();
+    private int unspentSkillPoints = 0;
+    private final Map<Skills.Skill, Label> skillValueLabels = new HashMap<>();
+    private Table skillsTable;
 
+    private PlayerCharacter previewCharacter;
 
+    // This is the key addition:
+    // roll the class HP die once per character roll, then reuse it for preview rebuilds.
+    private Integer rolledStartingHpDieResult = null;
+
+    @SuppressWarnings("unchecked")
     private static final Class<? extends RaceTrait>[] ALL_TRAITS = new Class[]{
             RaceTrait.Adaptable.class, RaceTrait.Fecund.class, RaceTrait.Gasbag.class,
             RaceTrait.LimitedShapeshifting.class, RaceTrait.Resilient.class, RaceTrait.Enduring.class,
@@ -75,9 +104,6 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
             RaceTrait.Large.class, RaceTrait.Warrior.class, RaceTrait.Weapon.class,
             RaceTrait.Chitin.class, RaceTrait.Flowering.class, RaceTrait.Regeneration.class,
             RaceTrait.Foothands.class, RaceTrait.Tail.class, RaceTrait.PsiPower.class,
-
-            // Add more here as you implement them
-
             RaceTrait.SlowMetabolism.class, RaceTrait.NoVitals.class, RaceTrait.Ascetic.class,
             RaceTrait.Swimming.class, RaceTrait.KeenSight.class, RaceTrait.LightBody.class,
             RaceTrait.NaturalWeapons.class, RaceTrait.RadResist.class, RaceTrait.Rocky.class,
@@ -89,32 +115,163 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
             RaceTrait.Tourist.class, RaceTrait.Linguist.class, RaceTrait.Cunning.class,
             RaceTrait.Air.class, RaceTrait.Fire.class
     };
-    private Map<Integer, Integer> statPenalties = new HashMap<>();
 
-    private ArrayList<Integer> rolledScores = new ArrayList<>();
+    public CharacterCreationScreen(Machinations game, Skin skin) {
+        this.game = game;
+        this.skin = skin;
+        this.stage = new Stage(new ScreenViewport());
 
-    private Skills playerSkills = new Skills();
-    private int unspentSkillPoints = 0;
-    private Map<Skills.Skill, Label> skillValueLabels = new HashMap<>();
-    private String selectedClass = "Expert";
-    private Table skillsTable;
+        this.classLevelProgression = new ClassLevelProgression();
+        this.classLevelProgression.initializeClassProgressions();
 
-    private Map<Class<? extends RaceTrait>, Map<Integer, Integer>> traitPenalties = new HashMap<>();
+        setupUI();
+        Gdx.input.setInputProcessor(stage);
+    }
 
-    private int getSkillPointsForLevel(String className, int level) {
-        LevelProgression progression = classLevelProgression.getProgressionForClassAndLevel(className, level);
-        if (progression != null) {
-            return progression.getSkillPoints(); // <- you need a getter in LevelProgression
-        } else {
-            return 0; // fallback
+    private void loadPortraits() {
+        FileHandle portraitsDir = Gdx.files.internal("Portraits");
+        FileHandle[] files = portraitsDir.list("png");
+
+        portraits = new Texture[files.length];
+        for (int i = 0; i < files.length; i++) {
+            portraits[i] = new Texture(files[i]);
         }
     }
 
-    private void refreshAbilityFieldsFromBaseStats() {
-        for (int i = 0; i < ABILITIES.length; i++) {
-            int penalty = statPenalties.getOrDefault(i, 0);
-            abilityFields[i].setText(String.valueOf(rolledBaseStats[i] + penalty));
+    private int getPreviewBaseStat(int index) {
+        return rolledBaseStats[index] + statPenalties.getOrDefault(index, 0);
+    }
+
+    private int getBaseClassSkillPoints() {
+        return classLevelProgression.getSkillPointsForClassAndLevel(selectedClass, 1);
+    }
+
+    private int getSpentManualSkillPoints() {
+        int spent = 0;
+        for (Skills.Skill skill : Skills.Skill.values()) {
+            spent += playerSkills.getSkillValue(skill);
         }
+        return spent;
+    }
+
+    private int rollStartingHpDieForClass(String className) {
+        switch (className) {
+            case "Killer":
+                return new Dice(8).roll();
+            case "Expert":
+            case "Scholar":
+            case "Psion":
+            default:
+                return new Dice(6).roll();
+        }
+    }
+
+    private void applyPreviewHpFromRolledDie(PlayerCharacter pc) {
+        if (rolledStartingHpDieResult == null) return;
+
+        int hp = rolledStartingHpDieResult + pc.getConMod();
+        if (hp < 1) hp = 1;
+
+        pc.setMaxHP(hp);
+        pc.setCurrentHp(hp);
+    }
+
+    private ArrayList<RaceTrait> instantiateSelectedTraits() {
+        ArrayList<RaceTrait> traits = new ArrayList<>();
+        for (Class<? extends RaceTrait> traitClass : selectedTraits) {
+            try {
+                traits.add(traitClass.getDeclaredConstructor().newInstance());
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return traits;
+    }
+
+    private PlayerCharacter createCharacterFromCurrentSelections() {
+        int strength = getPreviewBaseStat(0);
+        int dexterity = getPreviewBaseStat(1);
+        int constitution = getPreviewBaseStat(2);
+        int intelligence = getPreviewBaseStat(3);
+        int wisdom = getPreviewBaseStat(4);
+        int charisma = getPreviewBaseStat(5);
+        int comeliness = getPreviewBaseStat(6);
+
+        PlayerCharacter pc = new PlayerCharacter(
+                nameField.getText(),
+                speciesField.getText(),
+                selectedClass,
+                classLevelProgression,
+                strength,
+                dexterity,
+                constitution,
+                intelligence,
+                wisdom,
+                charisma,
+                comeliness
+        );
+
+        // Override constructor-rolled HP with our fixed preview HP roll
+        applyPreviewHpFromRolledDie(pc);
+
+        pc.setSkills(playerSkills.copy());
+        pc.setUnspentSkillPoints(Math.max(0, getBaseClassSkillPoints() - getSpentManualSkillPoints()));
+
+        pc.captureBaseState();
+        pc.setRaceTraits(instantiateSelectedTraits());
+        pc.recalculateFromTraits();
+
+        // Re-apply HP using the same original die roll, but with any Con changes from traits
+        applyPreviewHpFromRolledDie(pc);
+
+        pc.setPortrait(portraits[currentPortraitIndex]);
+        return pc;
+    }
+
+    private PlayerCharacter buildPlayerCharacter() {
+        return createCharacterFromCurrentSelections();
+    }
+
+    private void syncUiFromPreview() {
+        if (previewCharacter == null) {
+            for (int i = 0; i < ABILITIES.length; i++) {
+                abilityFields[i].setText(String.valueOf(getPreviewBaseStat(i)));
+            }
+            unspentSkillPoints = Math.max(0, getBaseClassSkillPoints() - getSpentManualSkillPoints());
+            hpPreviewLabel.setText("HP: -");
+        } else {
+            abilityFields[0].setText(String.valueOf(previewCharacter.getStrScore()));
+            abilityFields[1].setText(String.valueOf(previewCharacter.getDexScore()));
+            abilityFields[2].setText(String.valueOf(previewCharacter.getConScore()));
+            abilityFields[3].setText(String.valueOf(previewCharacter.getIntScore()));
+            abilityFields[4].setText(String.valueOf(previewCharacter.getWisScore()));
+            abilityFields[5].setText(String.valueOf(previewCharacter.getChaScore()));
+            abilityFields[6].setText(String.valueOf(previewCharacter.getComScore()));
+
+            unspentSkillPoints = previewCharacter.getUnspentSkillPoints();
+            hpPreviewLabel.setText("HP: " + previewCharacter.getCurrentHp() + "/" + previewCharacter.getMaxHP());
+        }
+
+        updateUnspentSkillPointsLabel();
+
+        for (Map.Entry<Skills.Skill, Label> entry : skillValueLabels.entrySet()) {
+            Skills.Skill skill = entry.getKey();
+            int value = (previewCharacter != null)
+                    ? previewCharacter.getSkills().getSkillValue(skill)
+                    : playerSkills.getSkillValue(skill);
+            entry.getValue().setText(String.valueOf(value));
+        }
+    }
+
+    private void rebuildPreviewCharacter() {
+        if (!statsRolled) {
+            previewCharacter = null;
+            syncUiFromPreview();
+            return;
+        }
+
+        previewCharacter = createCharacterFromCurrentSelections();
+        syncUiFromPreview();
     }
 
     private void recomputeTraitPenalties() {
@@ -133,8 +290,6 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
             }
             statPenalties.put(statIndex, nextPenalty);
         }
-
-        refreshAbilityFieldsFromBaseStats();
     }
 
     private boolean canApplyAdditionalPenalty(int statIndex) {
@@ -149,6 +304,30 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                 countLabel.setText(String.valueOf(Collections.frequency(selectedTraits, traitClass)));
             }
         }
+    }
+
+    private void updateSelectedTraitsLabel() {
+        if (selectedTraits.isEmpty()) {
+            selectedTraitsLabel.setText("Selected Traits: (none)");
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder("Selected Traits:\n");
+        boolean first = true;
+
+        for (Class<? extends RaceTrait> traitClass : ALL_TRAITS) {
+            int count = Collections.frequency(selectedTraits, traitClass);
+            if (count > 0) {
+                if (!first) sb.append("\n");
+                sb.append(traitClass.getSimpleName());
+                if (count > 1) {
+                    sb.append(" x").append(count);
+                }
+                first = false;
+            }
+        }
+
+        selectedTraitsLabel.setText(sb.toString());
     }
 
     private void promptForExtraPenaltyStat(final Class<? extends RaceTrait> justAddedTrait) {
@@ -172,6 +351,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                     recomputeTraitPenalties();
                     updateTraitCountLabels();
                     updateSelectedTraitsLabel();
+                    rebuildPreviewCharacter();
                     dialog.hide();
                 }
             });
@@ -187,6 +367,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                 recomputeTraitPenalties();
                 updateTraitCountLabels();
                 updateSelectedTraitsLabel();
+                rebuildPreviewCharacter();
                 dialog.hide();
             }
         });
@@ -199,7 +380,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         Table row = new Table();
 
         Label nameLabel = new Label(traitClass.getSimpleName(), whiteLabelStyle);
-        final Label countLabel = new Label("0", whiteLabelStyle);
+        Label countLabel = new Label("0", whiteLabelStyle);
         traitCountLabels.put(traitClass, countLabel);
 
         TextButton minusButton = new TextButton("-", skin);
@@ -217,6 +398,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                     recomputeTraitPenalties();
                     updateTraitCountLabels();
                     updateSelectedTraitsLabel();
+                    rebuildPreviewCharacter();
                 }
             }
         });
@@ -224,7 +406,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         plusButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                if (!statsrolled) {
+                if (!statsRolled) {
                     Dialog warning = new Dialog("Stats Not Rolled", skin);
                     warning.text("Please roll your stats before selecting race traits.");
                     warning.button("OK");
@@ -238,10 +420,11 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
 
                 if (extraTraitsNeeded > extraTraitPenaltyAssignments.size()) {
                     if (extraTraitsNeeded == 1) {
-                        extraTraitPenaltyAssignments.add(5); // Charisma for the 4th trait
+                        extraTraitPenaltyAssignments.add(5);
                         recomputeTraitPenalties();
                         updateTraitCountLabels();
                         updateSelectedTraitsLabel();
+                        rebuildPreviewCharacter();
                     } else {
                         updateTraitCountLabels();
                         updateSelectedTraitsLabel();
@@ -251,6 +434,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                     recomputeTraitPenalties();
                     updateTraitCountLabels();
                     updateSelectedTraitsLabel();
+                    rebuildPreviewCharacter();
                 }
             }
         });
@@ -263,172 +447,93 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         return row;
     }
 
-    private PlayerCharacter buildPlayerCharacter() {
-
-        // Gather basic info
-        String name = nameField.getText();
-        String species = speciesField.getText();
-        String playerClass = selectedClass;
-
-        // Gather abilities
-        int strength = parseAbilityField(0);
-        int dexterity = parseAbilityField(1);
-        int constitution = parseAbilityField(2);
-        int intelligence = parseAbilityField(3);
-        int wisdom = parseAbilityField(4);
-        int charisma = parseAbilityField(5);
-        int comeliness = parseAbilityField(6);
-
-        // Pass ClassLevelProgression (you already have it in the screen)
-        ClassLevelProgression clp = classLevelProgression;
-
-        // Construct the PlayerCharacter with your existing constructor
-        PlayerCharacter pc = new PlayerCharacter(
-                name,
-                species,
-                playerClass,
-                clp,
-                strength,
-                dexterity,
-                constitution,
-                intelligence,
-                wisdom,
-                charisma,
-                comeliness
-        );
-
-        // Apply skills
-        pc.setSkills(playerSkills); // make sure you have a copy method
-        pc.setUnspentSkillPoints(unspentSkillPoints);
-
-        ArrayList<RaceTrait> traits = new ArrayList<>();
-        for (Class<? extends RaceTrait> traitClass : selectedTraits) {
-            try {
-                // Create an instance of the trait
-                RaceTrait trait = traitClass.getDeclaredConstructor().newInstance();
-                // Apply it immediately (or later in PlayerCharacter constructor)
-                trait.applyEffect(pc);
-                traits.add(trait);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        pc.setRaceTraits(traits);
-        pc.setPortrait(portraits[currentPortraitIndex]);
-        return pc;
-    }
-
-
-    // Helper to safely parse ability fields
-    private int parseAbilityField(int index) {
-        try {
-            return Integer.parseInt(abilityFields[index].getText());
-        } catch (NumberFormatException e) {
-            return 0;
-        }
-    }
-
-
-    private Table selectedTraitsTable = new Table();
-
-    private void updateSelectedTraitsUI() {
-        selectedTraitsTable.clear();
-        for (Class<? extends RaceTrait> trait : selectedTraits) {
-            TextButton traitButton = new TextButton(trait.getSimpleName(), skin);
-            traitButton.addListener(new ChangeListener() {
-                @Override
-                public void changed(ChangeEvent event, Actor actor) {
-                    removeTrait(trait);
-                }
-            });
-            selectedTraitsTable.add(traitButton).pad(5).row();
-        }
-    }
-
-
-
-    public CharacterCreationScreen(Machinations game, Skin skin) {
-        this.game = game;
-        this.skin = skin;
-        stage = new Stage(new ScreenViewport());
-        classLevelProgression = new ClassLevelProgression();
-        classLevelProgression.initializeClassProgressions();
-        setupUI();
-        Gdx.input.setInputProcessor(stage);
-    }
-
-    private void loadPortraits() {
-        FileHandle portraitsDir = Gdx.files.internal("Portraits");
-        FileHandle[] files = portraitsDir.list("png"); // load all PNG portraits
-
-        portraits = new Texture[files.length];
-        for (int i = 0; i < files.length; i++) {
-            portraits[i] = new Texture(files[i]);
-        }
-    }
-
     private boolean isSkillAllowedForClass(Skills.Skill skill, String className) {
         switch (className) {
-            case "Expert":
-              //  return skill.getType() == Skills.SkillType.GENERAL;
             case "Killer":
                 return skill.getType() == Skills.SkillType.COMBAT;
             case "Scholar":
                 return skill.getType() == Skills.SkillType.SCHOLAR;
             case "Psion":
                 return skill.getType() == Skills.SkillType.PSION;
+            case "Expert":
             default:
                 return false;
         }
     }
 
     private void updateUnspentSkillPointsLabel() {
-        if (unspentSkillPointsLabel == null) {
-            // First time setup
-            unspentSkillPointsLabel = new Label("Unspent Skill Points: " + unspentSkillPoints, skin);
-            // Add it somewhere in your UI — probably at the top of the skills table
-            // Example:
-             skillsTable.add(unspentSkillPointsLabel).colspan(3).row();
-        } else {
+        if (unspentSkillPointsLabel != null) {
             unspentSkillPointsLabel.setText("Unspent Skill Points: " + unspentSkillPoints);
         }
     }
 
+    private Table createSkillRow(final Skills.Skill skill) {
+        Table row = new Table();
+
+        Label nameLabel = new Label(skill.name(), whiteLabelStyle);
+        Label valueLabel = new Label("0", whiteLabelStyle);
+        skillValueLabels.put(skill, valueLabel);
+
+        TextButton plus = new TextButton("+", skin);
+        plus.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                int availablePoints = (previewCharacter != null)
+                        ? previewCharacter.getUnspentSkillPoints()
+                        : unspentSkillPoints;
+
+                if (availablePoints > 0) {
+                    playerSkills.incrementSkill(skill);
+                    rebuildPreviewCharacter();
+                }
+            }
+        });
+
+        TextButton minus = new TextButton("-", skin);
+        minus.addListener(new ClickListener() {
+            @Override
+            public void clicked(InputEvent event, float x, float y) {
+                int currentManual = playerSkills.getSkillValue(skill);
+                if (currentManual > 0) {
+                    playerSkills.setSkillValue(skill, currentManual - 1);
+                    rebuildPreviewCharacter();
+                }
+            }
+        });
+
+        row.add(nameLabel).padRight(5);
+        row.add(valueLabel).padRight(5);
+        row.add(plus).padRight(2);
+        row.add(minus);
+
+        return row;
+    }
+
     private void updateSkillUI(String selectedClass) {
         skillValueLabels.clear();
-        playerSkills = new Skills();
-        updateUnspentSkillPointsLabel();
 
-        // ✅ Use the field reference
         if (skillsTable == null) {
-            System.out.println("Error: skillsTable not initialized!");
             return;
         }
 
         skillsTable.clearChildren();
 
-        // Build three columns inside the existing table
         Table leftColumn = new Table();
         Table centerColumn = new Table();
         Table rightColumn = new Table();
 
-        // LEFT: Everyman + General
         for (Skills.Skill skill : Skills.Skill.values()) {
             if (skill.getType() == Skills.SkillType.EVERYMAN || skill.getType() == Skills.SkillType.GENERAL) {
                 leftColumn.add(createSkillRow(skill)).row();
             }
         }
-        leftColumn.padTop(10);
-       /// leftColumn.add(unspentSkillPointsLabel).colspan(2).row();
 
-        // CENTER: Combat
         for (Skills.Skill skill : Skills.Skill.values()) {
             if (skill.getType() == Skills.SkillType.COMBAT) {
                 centerColumn.add(createSkillRow(skill)).row();
             }
         }
 
-        // RIGHT: Class-specific skills
         for (Skills.Skill skill : Skills.Skill.values()) {
             if (!selectedClass.equals("Expert") && isSkillAllowedForClass(skill, selectedClass)) {
                 rightColumn.add(createSkillRow(skill)).row();
@@ -438,94 +543,8 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         skillsTable.add(leftColumn).padRight(20).top().left();
         skillsTable.add(centerColumn).padRight(20).top().left();
         skillsTable.add(rightColumn).top().left();
-    }
 
-    private Table createSkillRow(Skills.Skill skill) {
-        Table row = new Table();
-        Label nameLabel = new Label(skill.name(), whiteLabelStyle); // <--- use whiteLabelStyle
-        Label valueLabel = new Label(String.valueOf(playerSkills.getSkillValue(skill)), whiteLabelStyle); // <--- also here
-        skillValueLabels.put(skill, valueLabel);
-
-        TextButton plus = new TextButton("+", skin);
-        plus.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                if (unspentSkillPoints > 0) {
-                    playerSkills.incrementSkill(skill);
-                    valueLabel.setText(String.valueOf(playerSkills.getSkillValue(skill)));
-                    unspentSkillPoints--;
-                    updateUnspentSkillPointsLabel();
-                }
-            }
-        });
-
-        TextButton minus = new TextButton("-", skin);
-        minus.addListener(new ClickListener() {
-            @Override
-            public void clicked(InputEvent event, float x, float y) {
-                int current = playerSkills.getSkillValue(skill);
-                if (current > 0) {
-                    playerSkills.setSkillValue(skill, current - 1);
-                    valueLabel.setText(String.valueOf(current - 1));
-                    unspentSkillPoints++;
-                    updateUnspentSkillPointsLabel();
-                }
-            }
-        });
-
-        //debug shit
-        System.out.println("Fetching SP for class '" + selectedClass + "', level " + 1);
-        LevelProgression lp = classLevelProgression.getProgressionForClassAndLevel(selectedClass, 1);
-        System.out.println("LevelProgression: " + lp);
-
-        row.add(nameLabel).padRight(5);
-        row.add(valueLabel).padRight(5);
-        row.add(plus).padRight(2);
-        row.add(minus);
-        return row;
-    }
-
-    private void removeTrait(Class<? extends RaceTrait> trait) {
-        selectedTraits.remove(trait);
-
-        // Revert any penalties applied by this trait
-        Map<Integer, Integer> penalties = traitPenalties.getOrDefault(trait, new HashMap<>());
-        for (Map.Entry<Integer, Integer> entry : penalties.entrySet()) {
-            int statIndex = entry.getKey();
-            int amount = entry.getValue();
-            statPenalties.put(statIndex, statPenalties.get(statIndex) - amount);
-
-            // Update UI
-            int baseScore = 0;
-            String text = abilityFields[statIndex].getText();
-            if (text != null && !text.isEmpty()) {
-                try { baseScore = Integer.parseInt(text); }
-                catch (NumberFormatException e) { baseScore = 0; }
-            }
-            abilityFields[statIndex].setText(String.valueOf(baseScore - amount));
-        }
-        traitPenalties.remove(trait);
-
-        // Optionally revert any other trait effects here
-        // e.g. playerCharacter.removeTraitEffect(trait);
-
-        ///updateSelectedTraitsUI();
-    }
-
-    private void updateSelectedTraitsLabel() {
-        if (selectedTraits.isEmpty()) {
-            selectedTraitsLabel.setText("Selected Traits: (none yet)");
-        } else {
-            String traitsText = selectedTraits.stream()
-                    .map(Class::getSimpleName)
-                    .collect(Collectors.joining("\n")); // line break between traits
-            selectedTraitsLabel.setText("Selected Traits:\n" + traitsText);
-            System.out.println("Selected Traits:\n" + traitsText);
-        }
-    }
-
-    private Drawable createColoredDrawable(Color color) {
-        return skin.newDrawable("white", color);
+        syncUiFromPreview();
     }
 
     private void setupUI() {
@@ -540,13 +559,12 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         scrollStyle.vScrollKnob = skin.newDrawable("white", Color.LIGHT_GRAY);
         skin.add("default", scrollStyle, ScrollPane.ScrollPaneStyle.class);
 
-
         Window.WindowStyle windowStyle = new Window.WindowStyle();
         windowStyle.titleFont = skin.getFont("main-font");
         windowStyle.titleFontColor = Color.WHITE;
         windowStyle.background = skin.newDrawable("white", new Color(0.1f, 0.1f, 0.1f, 0.9f));
-
         skin.add("default", windowStyle, Window.WindowStyle.class);
+
         whiteLabelStyle = new Label.LabelStyle();
         whiteLabelStyle.font = skin.getFont("main-font");
         whiteLabelStyle.fontColor = Color.WHITE;
@@ -564,7 +582,6 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         root.top().pad(10);
         stage.addActor(root);
 
-        // Portrait
         portraitDisplay = new Image(portraits[currentPortraitIndex]);
         portraitDisplay.setScaling(Scaling.fit);
 
@@ -576,6 +593,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
             public void clicked(InputEvent event, float x, float y) {
                 currentPortraitIndex = (currentPortraitIndex - 1 + portraits.length) % portraits.length;
                 portraitDisplay.setDrawable(new TextureRegionDrawable(new TextureRegion(portraits[currentPortraitIndex])));
+                rebuildPreviewCharacter();
             }
         });
 
@@ -584,6 +602,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
             public void clicked(InputEvent event, float x, float y) {
                 currentPortraitIndex = (currentPortraitIndex + 1) % portraits.length;
                 portraitDisplay.setDrawable(new TextureRegionDrawable(new TextureRegion(portraits[currentPortraitIndex])));
+                rebuildPreviewCharacter();
             }
         });
 
@@ -592,7 +611,6 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         portraitControlTable.add(portraitDisplay).size(150, 150);
         portraitControlTable.add(nextButton).padLeft(5);
 
-        // Name / species
         nameField = new TextField("", textFieldStyle);
         nameField.setMessageText("Enter your character's name");
         nameField.setAlignment(Align.left);
@@ -609,7 +627,6 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         speciesTable.add(new Label("Species:", whiteLabelStyle)).padRight(8);
         speciesTable.add(speciesField).width(220);
 
-        // Roll mode
         rollModeValueLabel = new Label(rollModes[currentRollModeIndex], whiteLabelStyle);
         TextButton changeRollModeButton = new TextButton("Change", skin);
         changeRollModeButton.addListener(new ClickListener() {
@@ -625,13 +642,11 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         rollModeTable.add(rollModeValueLabel).padRight(10);
         rollModeTable.add(changeRollModeButton);
 
-        // Class select
         classSelectBox = new SelectBox<>(skin);
         classSelectBox.setItems("Expert", "Killer", "Scholar", "Psion");
         classSelectBox.setSelected("Expert");
         selectedClass = classSelectBox.getSelected();
 
-        // Abilities
         Table abilitiesTable = new Table();
 
         for (int i = 0; i < ABILITIES.length; i++) {
@@ -649,7 +664,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                 @Override
                 public void clicked(InputEvent event, float x, float y) {
                     String mode = rollModes[currentRollModeIndex];
-                    if (!statsrolled) return;
+                    if (!statsRolled) return;
                     if (!mode.equals("Pussy Mode") && !mode.equals("Normal Mode")) return;
 
                     if (firstSelectedIndex == null) {
@@ -663,7 +678,7 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                         rolledBaseStats[firstSelectedIndex] = rolledBaseStats[statIndex];
                         rolledBaseStats[statIndex] = temp;
 
-                        refreshAbilityFieldsFromBaseStats();
+                        rebuildPreviewCharacter();
 
                         swapButtons[firstSelectedIndex].setColor(Color.WHITE);
                         swapButtons[statIndex].setColor(Color.WHITE);
@@ -681,7 +696,8 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
             abilitiesTable.row();
         }
 
-        // Traits
+        hpPreviewLabel = new Label("HP: -", whiteLabelStyle);
+
         Label traitsLabel = new Label("Select Race Traits:", whiteLabelStyle);
 
         Table traitTable = new Table();
@@ -698,7 +714,6 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         selectedTraitsLabel = new Label("Selected Traits: (none)", whiteLabelStyle);
         selectedTraitsLabel.setWrap(true);
 
-        // Roll button
         TextButton rollButton = new TextButton("Roll Stats", skin);
         rollButton.setColor(Color.RED);
         rollButton.addListener(new ClickListener() {
@@ -740,10 +755,14 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                         break;
                 }
 
-                statsrolled = true;
+                // Roll starting HP die ONCE for this rolled character
+                rolledStartingHpDieResult = rollStartingHpDieForClass(selectedClass);
+
+                statsRolled = true;
                 recomputeTraitPenalties();
                 updateTraitCountLabels();
                 updateSelectedTraitsLabel();
+                rebuildPreviewCharacter();
 
                 if (firstSelectedIndex != null) {
                     swapButtons[firstSelectedIndex].setColor(Color.WHITE);
@@ -752,13 +771,12 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
             }
         });
 
-        // Create button
         TextButton createCharacterButton = new TextButton("Create Character", skin);
         createCharacterButton.setColor(Color.GREEN);
         createCharacterButton.addListener(new ClickListener() {
             @Override
             public void clicked(InputEvent event, float x, float y) {
-                if (!statsrolled) {
+                if (!statsRolled) {
                     Dialog warning = new Dialog("Cannot Create Character", skin);
                     warning.text("You must roll your stats first.");
                     warning.button("OK");
@@ -767,23 +785,18 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
                 }
 
                 PlayerCharacter pc = buildPlayerCharacter();
-                System.out.println("Character Created:\n" + pc);
-
                 game.setPlayerCharacter(pc);
                 game.startGame();
             }
         });
 
-        // Skills
         skillsTable = new Table();
-        skillsTable.setName("skillsTable");
-
         ScrollPane skillsScroll = new ScrollPane(skillsTable, skin);
         skillsScroll.setFadeScrollBars(false);
         skillsScroll.setScrollingDisabled(false, false);
         skillsScroll.setScrollbarsOnTop(true);
 
-        unspentSkillPoints = classLevelProgression.getSkillPointsForClassAndLevel(selectedClass, 1);
+        unspentSkillPoints = getBaseClassSkillPoints();
         unspentSkillPointsLabel = new Label("Unspent Skill Points: " + unspentSkillPoints, whiteLabelStyle);
 
         classSelectBox.addListener(new ChangeListener() {
@@ -791,13 +804,16 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
             public void changed(ChangeEvent event, Actor actor) {
                 selectedClass = classSelectBox.getSelected();
                 playerSkills = new Skills();
-                unspentSkillPoints = classLevelProgression.getSkillPointsForClassAndLevel(selectedClass, 1);
+
+                if (statsRolled) {
+                    rolledStartingHpDieResult = rollStartingHpDieForClass(selectedClass);
+                }
+
                 updateSkillUI(selectedClass);
-                updateUnspentSkillPointsLabel();
+                rebuildPreviewCharacter();
             }
         });
 
-        // Layout
         Table left = new Table();
         left.top().left();
         left.add(portraitControlTable).left().row();
@@ -815,7 +831,8 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         Table right = new Table();
         right.top().right();
         right.add(rollModeTable).right().padBottom(12).row();
-        right.add(abilitiesTable).right().padBottom(12).row();
+        right.add(abilitiesTable).right().padBottom(8).row();
+        right.add(hpPreviewLabel).right().padBottom(8).row();
         right.add(rollButton).right().padBottom(10).row();
         right.add(createCharacterButton).right().row();
 
@@ -831,88 +848,15 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
         updateTraitCountLabels();
         updateSelectedTraitsLabel();
         updateSkillUI(selectedClass);
-        updateUnspentSkillPointsLabel();
+        rebuildPreviewCharacter();
     }
-
-    private void applyPenalty(int statIndex, int amount, Class<? extends RaceTrait> trait) {
-        int currentPenalty = statPenalties.getOrDefault(statIndex, 0);
-        int newPenalty = currentPenalty + amount;
-
-        // Clamp so it can’t go below -8
-        if (newPenalty < -8) newPenalty = -8;
-
-        statPenalties.put(statIndex, newPenalty);
-
-        // Record this penalty for the trait
-        if (trait != null) {
-            traitPenalties.computeIfAbsent(trait, k -> new HashMap<>())
-                    .put(statIndex, amount);
-        }
-
-        // Safe parse of the current ability field
-        int baseScore = 0;
-        String text = abilityFields[statIndex].getText();
-        if (text != null && !text.isEmpty()) {
-            try { baseScore = Integer.parseInt(text); }
-            catch (NumberFormatException e) { baseScore = 0; }
-        }
-
-        // Update UI
-        abilityFields[statIndex].setText(String.valueOf(baseScore + newPenalty));
-
-        System.out.println("Applied penalty of " + amount + " to " + ABILITIES[statIndex] +
-                " (total penalty: " + newPenalty + ")");
-    }
-
-    private void promptForPenaltyStat(Class<? extends RaceTrait> traitToRemoveOnCancel) {
-        Dialog dialog = new Dialog("Choose a Stat to Reduce", skin);
-
-        for (int i = 0; i < ABILITIES.length; i++) {
-            final int statIndex = i;
-            TextButton button = new TextButton(ABILITIES[i], skin);
-            button.addListener(new ChangeListener() {
-                @Override
-                public void changed(ChangeEvent event, Actor actor) {
-                    if (canApplyPenalty(statIndex)) {
-                        applyPenalty(statIndex, -4, traitToRemoveOnCancel);
-                        dialog.hide();
-                    }
-                }
-            });
-            dialog.getContentTable().add(button).pad(5).row();
-        }
-
-        // Cancel button removes the trait
-        dialog.button("Cancel", true).addListener(new ChangeListener() {
-            @Override
-            public void changed(ChangeEvent event, Actor actor) {
-                // Remove the trait from selection
-                selectedTraits.remove(traitToRemoveOnCancel);
-                updateSelectedTraitsLabel();
-
-                dialog.hide();
-            }
-        });
-
-        dialog.show(stage);
-    }
-
-
-    private boolean canApplyPenalty(int statIndex) {
-        // If no penalties assigned yet, treat as 0
-
-        int currentPenalty = statPenalties.getOrDefault(statIndex, 0);
-        int newPenalty = currentPenalty - 4; // what would happen if we applied another penalty
-        return newPenalty >= -8;
-    }
-
-
 
     private int roll4d6DropLowest() {
         int[] rolls = new int[4];
         for (int i = 0; i < 4; i++) {
-            rolls[i] = (int)(Math.random() * 6) + 1;
+            rolls[i] = (int) (Math.random() * 6) + 1;
         }
+
         int min = rolls[0];
         int sum = 0;
         for (int roll : rolls) {
@@ -925,16 +869,14 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
     private int roll3d6() {
         int sum = 0;
         for (int i = 0; i < 3; i++) {
-            sum += (int)(Math.random() * 6) + 1;
+            sum += (int) (Math.random() * 6) + 1;
         }
         return sum;
     }
 
-
-
     @Override
     public void render(float delta) {
-        Gdx.gl.glClearColor(0, 0, 0, 1);  // or your background color
+        Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
         stage.act(delta);
         stage.draw();
@@ -946,6 +888,5 @@ public class CharacterCreationScreen extends com.badlogic.gdx.ScreenAdapter {
             t.dispose();
         }
         stage.dispose();
-
     }
 }

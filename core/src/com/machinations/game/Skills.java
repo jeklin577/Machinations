@@ -16,6 +16,8 @@ public class Skills {
         return clone;
     }
 
+
+
     public enum Skill {
         // Everyman Skills
         CLIMB(SkillType.EVERYMAN),
@@ -117,6 +119,8 @@ public class Skills {
         COMBAT,
         GENERAL,
     }
+
+
 
     ///Note, we should change this so skills are properly seregated into the everyman, scholar, psion sets
 

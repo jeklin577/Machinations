@@ -889,7 +889,7 @@ public abstract class RaceTrait {
         @Override
         public void applyEffect(PlayerCharacter playerCharacter) {
             playerCharacter.setIntScore(playerCharacter.getIntScore() + 1);
-            playerCharacter.setIntMod(playerCharacter.getModifier(playerCharacter.getIntScore())); // Update modifier
+            ///playerCharacter.setIntMod(playerCharacter.getModifier(playerCharacter.getIntScore())); // Update modifier
         }
 
         public String getDescription() {
